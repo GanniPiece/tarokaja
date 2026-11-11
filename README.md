@@ -2,11 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
-| 0.1 | 2026-11-11 | GanniPiece | First version |
-| 0.2 | 2026-11-11 | GanniPiece | Language profiles (`en`, `zh-TW`), `install.sh --lang` and `--link`, stream-json log for Claude Code |
-| 0.3 | 2026-11-11 | GanniPiece | Add-ons: timelog and session |
-| 0.4 | 2026-11-11 | GanniPiece | Why Tarokaja: comparison with other agent tools |
-| 0.5 | 2026-11-11 | GanniPiece | Rename from Agent Office to Tarokaja: folder `.tarokaja/`, variables `TK_*` |
+| 0.1 | 2026-11-11 | GanniPiece | Pre-release |
 
 - Tarokaja runs an AI agent as a team member inside an Obsidian vault on macOS. It turns the vault into an office: you are the manager, and the agent works for you.
 - The name: Tarōkaja (太郎冠者) is the servant in Japanese Kyōgen theater. The master sends him on errands, and he comes back to report and to ask what to do next.
@@ -37,11 +33,11 @@ The Obsidian vault is an office. You are the manager, and the AI agent is a team
 
 ```mermaid
 flowchart LR
-  s1["1. Delegate"] --> s2["2. Work session"]
-  s2 --> s3["3. Stop"]
-  s3 --> s4["4. Meeting"]
+  s1["1 Delegate"] --> s2["2 Work session"]
+  s2 --> s3["3 Stop"]
+  s3 --> s4["4 Meeting"]
   s4 --> s2
-  s4 --> s5["5. Accept"]
+  s4 --> s5["5 Accept"]
 ```
 
 1. The manager marks a subtask with `(agent)` or sets `owner: agent` on a `doing` ticket.

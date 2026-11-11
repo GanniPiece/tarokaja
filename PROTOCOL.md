@@ -2,9 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
-| 0.1 | 2026-11-11 | GanniPiece | First version |
-| 0.2 | 2026-11-11 | GanniPiece | Language profiles: headings, marker, breadcrumb words, and folders per language |
-| 0.3 | 2026-11-11 | GanniPiece | Add-ons: timelog and session |
+| 0.1 | 2026-11-11 | GanniPiece | Pre-release |
 
 - Defines the vault file layout, ticket schema, state machine, and cadence for Tarokaja, independent of any script or UI.
 - Enables third-party tools to read and write the same Obsidian vault without data loss.
@@ -154,14 +152,14 @@ The agenda body contains these 6 sections in order:
 
 ```mermaid
 stateDiagram-v2
-  s1: 1. inbox
-  s2: 2. backlog
-  s3: 3. todo
-  s4: 4. doing
-  s5: 5. waiting (decide)
-  s6: 6. waiting (review)
-  s7: 7. done
-  s8: 8. dropped
+  s1: 1 inbox
+  s2: 2 backlog
+  s3: 3 todo
+  s4: 4 doing
+  s5: 5 waiting (decide)
+  s6: 6 waiting (review)
+  s7: 7 done
+  s8: 8 dropped
 
   [*] --> s1
   [*] --> s4
