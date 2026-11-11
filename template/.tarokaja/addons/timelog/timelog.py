@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 
 TK_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # keep symlinks: no realpath
 VAULT = os.path.dirname(TK_DIR)
@@ -31,9 +32,11 @@ ID_RE = re.compile(r"^T-\d+$")
 
 LABELS = {
     "en": {"heading": "## Time", "head": "| Ticket | Me (min) | Agent (min) |", "total": "Total",
-           "week": "Week from %s", "none": "No time this week."},
+           "week": "Week from %s", "none": "No time this week.", "me": "Me", "agent": "Agent", "unit": "Ticket (minutes)"},
+    "ja": {"heading": "## 時間", "head": "| チケット | 自分（分） | agent（分） |", "total": "合計",
+           "week": "%s からの週", "none": "今週の記録はありません。", "me": "自分", "agent": "agent", "unit": "チケット（分）"},
     "zh-TW": {"heading": "## 時間", "head": "| 卡片 | 我（分） | agent（分） |", "total": "合計",
-              "week": "%s 起的這一週", "none": "這週沒有時間紀錄。"},
+              "week": "%s 起的這一週", "none": "這週沒有時間紀錄。", "me": "我", "agent": "agent", "unit": "卡片（分）"},
 }
 
 
@@ -174,6 +177,27 @@ def by_day(spans):
             out[day.isoformat()] = out.get(day.isoformat(), 0) + end - s
             s = end
     return out
+
+
+def cols(text):
+    """Screen width of text: East Asian wide characters take two columns."""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
+
+
+def cut(text, width):
+    out = ""
+    for c in text:
+        if cols(out + c) > width:
+            break
+        out += c
+    return out
+
+
+def row(title, me, agent):
+    """One line of the week report: title in 40 columns, then two number columns of 6."""
+    title = cut(str(title), 40)
+    me, agent = str(me), str(agent)
+    return title + " " * (40 - cols(title)) + " " * (6 - cols(me)) + me + " " * (6 - cols(agent)) + agent
 
 
 def minutes(seconds):
@@ -329,18 +353,18 @@ def week(now=None):
     days = {(monday + dt.timedelta(days=i)).isoformat() for i in range((today - monday).days + 1)}
     files = ticket_files()
     data = totals(now)
-    lines = [lab["week"] % monday.isoformat()]
+    lines = [lab["week"] % monday.isoformat(), row(lab["unit"], lab["me"], lab["agent"])]
     tot_me = tot_ag = 0
     for tid in sorted(data, key=lambda x: int(x[2:])):
         me = minutes(sum(v for d, v in data[tid]["me"].items() if d in days))
         ag = minutes(sum(v for d, v in data[tid]["agent"].items() if d in days))
         if me or ag:
             title = os.path.basename(files[tid])[:-3] if tid in files else tid
-            lines.append("%-40s %5d %5d" % (title[:40], me, ag))
+            lines.append(row(title, me, ag))
             tot_me, tot_ag = tot_me + me, tot_ag + ag
-    if len(lines) == 1:
+    if len(lines) == 2:
         lines.append(lab["none"])
-    lines.append("%-40s %5d %5d" % (lab["total"], tot_me, tot_ag))
+    lines.append(row(lab["total"], tot_me, tot_ag))
     return lines
 
 
