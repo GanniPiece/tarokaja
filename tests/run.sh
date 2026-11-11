@@ -947,6 +947,14 @@ test_install_rules_path() {
   done
 }
 
+test_logs_ignored_in_own_gitignore() {
+  # A vault with its own .gitignore still keeps logs out of git
+  local v="$VAULT-gi"; mkdir -p "$v"; printf 'node_modules/\n' > "$v/.gitignore"
+  /bin/bash "$REPO_DIR/install.sh" "$v" >/dev/null
+  [ "$(cat "$v/.gitignore")" = "node_modules/" ]
+  grep -qx 'logs/' "$v/.tarokaja/.gitignore"
+}
+
 run_test "install.sh --lang on an old config, --link twice" test_lang_on_old_config_and_relink
 run_test "stream-json error result and stderr fallback" test_stream_error_result
 run_test "tui.py draws the screen and quits in en and zh-TW" test_tui_screen_both_languages
@@ -974,6 +982,7 @@ run_test "install.sh --lang en|zh-TW layout, reinstall, and bad args" test_insta
 run_test "install.sh --link symlinks, .bak backups, and vault log path" test_install_link_flag
 run_test "install.sh skips the example ticket in a vault with tickets" test_install_existing_tickets
 run_test "install.sh --rules puts the rules file in a folder" test_install_rules_path
+run_test "logs stay out of git in a vault with its own .gitignore" test_logs_ignored_in_own_gitignore
 run_test "work.sh claude stream-json output and result extraction" test_work_claude_stream_json
 run_test "tui.py with TK_LANG=zh-TW and --print" test_tui_zh_profile
 run_test "A: add-on mechanism and core events" test_a_addon_mechanism
