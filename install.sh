@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--link] [--schedule]
+# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--rules PATH] [--link] [--schedule]
 #
 # Copies the Agent Office template into VAULT_DIR. VAULT_DIR can be a new folder or an
 # existing Obsidian vault. Files that exist already are never overwritten.
@@ -7,13 +7,16 @@
 #   --lang      the language profile: ticket headings, markers, folders, rules (Default: en)
 #   --addons    the add-ons to turn on, separated by "," (timelog, session). Writes ADDONS in config.
 #               session adds Claude Code hooks to VAULT_DIR/.claude/settings.json.
+#   --rules     where the agent rules go, relative to VAULT_DIR, such as "Agent Office/AGENTS.md".
+#               Writes RULES_FILE in config. The vault root then gets no AGENTS.md, CLAUDE.md, or GEMINI.md,
+#               so your own agent sessions in the vault do not load the office rules. (Default: AGENTS.md)
 #   --link      link the scripts to this repo instead of copying them, so the vault runs
 #               the repo's code (for development). config and logs stay in the vault.
 #   --schedule  install the launchd job that runs .agent-office/tick.sh every 5 minutes
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-vault="" agent="" lang="" addons="" set_addons=0 link=0 schedule=0
+vault="" agent="" lang="" addons="" set_addons=0 rules="" set_rules=0 link=0 schedule=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --agent) [ $# -ge 2 ] || { echo "--agent needs a value" >&2; exit 2; }; agent="$2"; shift 2 ;;
@@ -22,14 +25,23 @@ while [ $# -gt 0 ]; do
     --lang=*) lang="${1#--lang=}"; shift ;;
     --addons) [ $# -ge 2 ] && [ -n "$2" ] || { echo "--addons needs a value" >&2; exit 2; }; addons="$2"; set_addons=1; shift 2 ;;
     --addons=*) addons="${1#--addons=}"; [ -n "$addons" ] || { echo "--addons needs a value" >&2; exit 2; }; set_addons=1; shift ;;
+    --rules) [ $# -ge 2 ] || { echo "--rules needs a value" >&2; exit 2; }; rules="$2"; set_rules=1; shift 2 ;;
+    --rules=*) rules="${1#--rules=}"; set_rules=1; shift ;;
     --link) link=1; shift ;;
     --schedule) schedule=1; shift ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "Unknown option: $1" >&2; exit 2 ;;
     *) vault="$1"; shift ;;
   esac
 done
-[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--link] [--schedule]" >&2; exit 2; }
+[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--rules PATH] [--link] [--schedule]" >&2; exit 2; }
+if [ "$set_rules" = 1 ]; then
+  case "$rules" in
+    ""|/*|../*|*/../*|*/..|*"|"*|*"&"*|*\\*|*[[:cntrl:]]*) echo "--rules needs a path inside the vault, such as \"Agent Office/AGENTS.md\"" >&2; exit 2 ;;
+    *.md) ;;
+    *) echo "--rules needs a .md file" >&2; exit 2 ;;
+  esac
+fi
 if [ "$set_addons" = 1 ]; then
   case "$addons" in *[!A-Za-z0-9_,-]*) echo "--addons takes names separated by \",\", such as timelog,session" >&2; exit 2 ;; esac
   for a in $(echo "$addons" | tr ',' ' '); do
@@ -58,9 +70,40 @@ if [ -z "$lang" ] && [ "$fresh" = 0 ]; then
   lang="$(sed -n 's/^AO_LANG=//p' "$vault/.agent-office/config" | tail -n 1)"
 fi
 case "${lang:-en}" in en|zh-TW) lang="${lang:-en}" ;; *) lang=en ;; esac
+# The rules file: --rules, else RULES_FILE in config, else AGENTS.md at the vault root.
+if [ "$set_rules" = 0 ] && [ "$fresh" = 0 ]; then
+  rules="$(sed -n 's/^RULES_FILE=//p' "$vault/.agent-office/config" | tail -n 1)"
+fi
+rules="${rules:-AGENTS.md}"
+root_new=""   # root rules files that this install creates, removed again when the rules live elsewhere
+for name in AGENTS.md CLAUDE.md GEMINI.md; do [ -e "$vault/$name" ] || [ -L "$vault/$name" ] || root_new="$root_new $name"; done
 # cp -n: never overwrite a file that exists. The trailing /. copies dotfiles too.
 cp -Rn "$HERE/template/." "$vault/" 2>/dev/null || true
+# The example ticket goes only into a vault without tickets: an existing T-001 would get a second file.
+example="$(cd "$HERE/locale/$lang/Tickets" && ls T-001\ *.md)"
+skip_example=0
+if ls "$vault/Tickets/"T-*.md >/dev/null 2>&1 && [ ! -e "$vault/Tickets/$example" ]; then skip_example=1; fi
 cp -Rn "$HERE/locale/$lang/." "$vault/" 2>/dev/null || true
+if [ "$rules" != AGENTS.md ] && [ -d "$vault/$rules" ]; then
+  echo "--rules must name a file, not a folder: $rules" >&2; exit 2
+fi
+if [ "$rules" != AGENTS.md ] || [ "$set_rules" = 1 ]; then
+  if [ "$rules" != AGENTS.md ]; then
+    mkdir -p "$(dirname "$vault/$rules")"
+    [ -e "$vault/$rules" ] || cp "$HERE/locale/$lang/AGENTS.md" "$vault/$rules"
+    for name in $root_new; do rm -f "$vault/$name"; done
+  fi
+  if grep -q '^RULES_FILE=' "$vault/.agent-office/config"; then
+    sed -i '' "s|^RULES_FILE=.*|RULES_FILE=$rules|" "$vault/.agent-office/config"
+  else
+    printf '\n# Agent rules file, relative to the vault\nRULES_FILE=%s\n' "$rules" >> "$vault/.agent-office/config"
+  fi
+  ok "rules file: $rules"
+fi
+if [ "$skip_example" = 1 ]; then
+  rm -f "$vault/Tickets/$example"
+  ok "example ticket skipped: Tickets/ has tickets already"
+fi
 if grep -q '^AO_LANG=' "$vault/.agent-office/config"; then
   sed -i '' "s/^AO_LANG=.*/AO_LANG=$lang/" "$vault/.agent-office/config"
 else
@@ -108,7 +151,7 @@ if [ "$set_addons" = 1 ]; then
 fi
 
 today="$(date +%F)"
-for t1 in "$vault/Tickets/T-001 "*.md; do :; done   # the example ticket of the language
+t1="$vault/Tickets/$example"   # the example ticket of the language
 if [ -f "$t1" ] && grep -q '^created: 2026-01-01$' "$t1"; then
   sed -i '' -e "s/^created: 2026-01-01$/created: $today/" -e "s/^updated: 2026-01-01$/updated: $today/" \
     -e "s/^- 2026-01-01 09:00 · /- $today $(date +%H:%M) · /" "$t1"
@@ -144,5 +187,9 @@ Next:
   1. Open $vault as a vault in Obsidian.
   2. In cmux, open the folder:   cmux "$vault"
   3. Start the TUI:              python3 .agent-office/tui.py
-  4. Select T-001 and follow its subtasks.
 EOF
+if [ "$skip_example" = 1 ]; then
+  echo "  4. Open a ticket and delegate a subtask: end it with $( [ "$lang" = zh-TW ] && echo '（agent）' || echo '(agent)' )."
+else
+  echo "  4. Select T-001 and follow its subtasks."
+fi

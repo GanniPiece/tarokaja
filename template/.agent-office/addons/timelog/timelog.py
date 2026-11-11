@@ -90,8 +90,12 @@ def events(tid):
     return sorted(out)
 
 
-def intervals(evs, prefix, now):
-    """[(start, end)] for one kind of time ("seat" or "agent"), per ref.
+def agent_intervals(evs, now):
+    return merge(_agent_by_ref(evs, now))
+
+
+def _agent_by_ref(evs, now, prefix="agent"):
+    """[(start, end)] of agent time, per ref, not merged.
 
     A gap of more than IDLE seconds between two events cuts the interval at the earlier event.
     An interval without an end event ends at now when its last event is IDLE seconds old or less, else at that event.
@@ -103,7 +107,7 @@ def intervals(evs, prefix, now):
                 s, last = open_.pop(ref)
                 out.append((s, last))
             open_[ref] = [at, at]
-        elif kind in (prefix + "_tick", "ping") and ref in open_:
+        elif kind == prefix + "_tick" and ref in open_:
             s, last = open_[ref]
             if at - last > IDLE:
                 out.append((s, last))
@@ -115,17 +119,48 @@ def intervals(evs, prefix, now):
             out.append((s, at if at - last <= IDLE else last))
     for s, last in open_.values():
         out.append((s, now if 0 <= now - last <= IDLE else last))
-    return merge([x for x in out if x[1] > x[0]])
+    return [x for x in out if x[1] > x[0]]
 
 
-def merge(spans):
+def merge(spans, gap=0):
+    """Join spans that overlap or are at most gap seconds apart."""
     out = []
     for s, e in sorted(spans):
-        if out and s <= out[-1][1]:
+        if out and s - out[-1][1] <= gap:
             out[-1] = (out[-1][0], max(out[-1][1], e))
         else:
             out.append((s, e))
     return out
+
+
+def me_intervals(evs, now):
+    """[(start, end)] of the manager's time: activity inside a seat (a meeting or talk is open).
+
+    Activity is every event that is not from a background session (ref "bg"): seat events, pings, and the
+    events and intervals of interactive agent sessions. Activity less than IDLE seconds apart is joined.
+    A gap of more than IDLE seconds does not count, such as a laptop that sleeps during a meeting.
+    A seat without seat_end lasts while its activity continues.
+    """
+    fg = [(at, kind, ref) for at, kind, ref in evs if ref != "bg"]
+    agent = [(s, e) for s, e in _agent_by_ref([x for x in evs if x[2] != "bg"], now)]
+    windows = []
+    for i, (start, kind, ref) in enumerate(fg):
+        if kind != "seat_start":
+            continue
+        end = next((at for at, k, r in fg[i + 1:] if k == "seat_end" and r == ref), None)
+        if end is None:
+            nxt = next((at for at, k, _r in fg[i + 1:] if k == "seat_start"), None)
+            inside = lambda t: t >= start and (nxt is None or t < nxt)
+            spans = [(at, at) for at, _k, _r in fg if inside(at)] + [(s, e) for s, e in agent if inside(s)]
+            last = merge([(start, start)] + spans, IDLE)[0][1]
+            end = now if nxt is None and 0 <= now - last <= IDLE else last
+        windows.append((start, end))
+    out = []
+    for ws, we in windows:
+        spans = [(ws, ws), (we, we)] + [(at, at) for at, _k, _r in fg if ws <= at <= we]
+        spans += [(max(s, ws), min(e, we)) for s, e in agent if s < we and e > ws]
+        out += merge(spans, IDLE)
+    return [x for x in merge(out) if x[1] > x[0]]
 
 
 def by_day(spans):
@@ -244,7 +279,7 @@ def totals(now):
         if not name.endswith(".jsonl") or not ID_RE.match(tid):
             continue
         evs = events(tid)
-        out[tid] = {"me": by_day(intervals(evs, "seat", now)), "agent": by_day(intervals(evs, "agent", now))}
+        out[tid] = {"me": by_day(me_intervals(evs, now)), "agent": by_day(agent_intervals(evs, now))}
     return out
 
 

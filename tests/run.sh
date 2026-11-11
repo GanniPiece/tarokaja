@@ -897,6 +897,56 @@ test_e_tui_week_report() {
   python3 -I "$TESTS_DIR/test_e_tui.py" "$VAULT"
 }
 
+test_install_existing_tickets() {
+  # A vault that has tickets already does not get the example ticket (two T-001 files would clash)
+  local v="$VAULT-existing"
+  mkdir -p "$v/Tickets"
+  printf -- '---\nid: T-001\nstatus: doing\ncreated: 2026-01-01\n---\n# Mine\n' > "$v/Tickets/T-001 Mine.md"
+  local before; before="$(cat "$v/Tickets/T-001 Mine.md")"
+  /bin/bash "$REPO_DIR/install.sh" "$v" --lang zh-TW >/dev/null
+  [ ! -e "$v/Tickets/T-001 試用 Agent Office.md" ]
+  [ "$(cat "$v/Tickets/T-001 Mine.md")" = "$before" ]
+  [ -f "$v/.agent-office/config" ]
+  # A new vault still gets it
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT-new" --lang zh-TW >/dev/null
+  [ -f "$VAULT-new/Tickets/T-001 試用 Agent Office.md" ]
+}
+
+test_install_rules_path() {
+  # --rules puts the rules file in a folder and leaves the vault root alone
+  local v="$VAULT-rules"
+  /bin/bash "$REPO_DIR/install.sh" "$v" --lang zh-TW --rules "Agent Office/AGENTS.md" >/dev/null
+  [ -f "$v/Agent Office/AGENTS.md" ]
+  grep -q '^# Agent Office 守則' "$v/Agent Office/AGENTS.md"
+  grep -q '^RULES_FILE=Agent Office/AGENTS.md$' "$v/.agent-office/config"
+  [ ! -e "$v/AGENTS.md" ] && [ ! -e "$v/CLAUDE.md" ] && [ ! -e "$v/GEMINI.md" ]
+  # A reinstall without --rules keeps the setting and still leaves the root alone
+  /bin/bash "$REPO_DIR/install.sh" "$v" >/dev/null
+  grep -q '^RULES_FILE=Agent Office/AGENTS.md$' "$v/.agent-office/config"
+  [ ! -e "$v/AGENTS.md" ] && [ ! -e "$v/CLAUDE.md" ]
+  # A root CLAUDE.md of the user stays
+  printf 'mine\n' > "$v/CLAUDE.md"
+  /bin/bash "$REPO_DIR/install.sh" "$v" >/dev/null
+  [ "$(cat "$v/CLAUDE.md")" = mine ]
+  # The work prompt names the rules file
+  /bin/bash "$v/.agent-office/work.sh" "T-001" >/dev/null 2>&1 || true
+  grep -q 'Agent Office/AGENTS.md' "$STUB_AGENT_LOG"
+  # Bad paths exit 2
+  local rc bad
+  # --rules AGENTS.md switches back to the vault root
+  /bin/bash "$REPO_DIR/install.sh" "$v" --rules AGENTS.md >/dev/null
+  grep -q '^RULES_FILE=AGENTS.md$' "$v/.agent-office/config"
+  [ -f "$v/AGENTS.md" ]
+  # A dangling symlink of the user at the root stays
+  local v2="$VAULT-rules2"; mkdir -p "$v2"; ln -s /nonexistent "$v2/GEMINI.md"
+  /bin/bash "$REPO_DIR/install.sh" "$v2" --rules "Agent Office/AGENTS.md" >/dev/null
+  [ -L "$v2/GEMINI.md" ]
+  for bad in "../x.md" "/abs/x.md" "x.txt" "a|b.md" "" "a&b.md" 'a\b.md' "a/../b.md" "$(printf 'a\nb.md')"; do
+    rc=0; /bin/bash "$REPO_DIR/install.sh" "$VAULT-badrules" --rules "$bad" >/dev/null 2>&1 || rc=$?
+    [ "$rc" -eq 2 ] || return 1
+  done
+}
+
 run_test "install.sh --lang on an old config, --link twice" test_lang_on_old_config_and_relink
 run_test "stream-json error result and stderr fallback" test_stream_error_result
 run_test "tui.py draws the screen and quits in en and zh-TW" test_tui_screen_both_languages
@@ -922,6 +972,8 @@ run_test "prep.sh and tick.sh use MEETINGS_DIR from profile and config" test_mee
 run_test "work.sh, prep.sh, meeting.sh prompts use RULES_FILE" test_rules_file_in_prompts
 run_test "install.sh --lang en|zh-TW layout, reinstall, and bad args" test_install_lang_flag
 run_test "install.sh --link symlinks, .bak backups, and vault log path" test_install_link_flag
+run_test "install.sh skips the example ticket in a vault with tickets" test_install_existing_tickets
+run_test "install.sh --rules puts the rules file in a folder" test_install_rules_path
 run_test "work.sh claude stream-json output and result extraction" test_work_claude_stream_json
 run_test "tui.py with AO_LANG=zh-TW and --print" test_tui_zh_profile
 run_test "A: add-on mechanism and core events" test_a_addon_mechanism

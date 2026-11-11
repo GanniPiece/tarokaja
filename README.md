@@ -64,12 +64,13 @@ flowchart LR
 | `--agent <cli>` | `claude` | • **Optional.** <br>• Sets `AGENT_CLI` in `.agent-office/config` to `claude`, `codex`, `agy`, or `gemini`. |
 | `--lang <lang>` | `en` | • **Optional.**<br>• Sets the language profile: `en` or `zh-TW`. See [Language profiles](#language-profiles).<br>• A reinstall without `--lang` keeps the language in `config`. |
 | `--addons <list>` | Empty | • **Optional.** <br>• Sets `ADDONS` in `.agent-office/config` to comma-separated add-on names (`timelog`, `session`), described in [Add-ons](#add-ons). <br>• A reinstall without `--addons` keeps `ADDONS` in `config`. <br>• An unknown add-on name exits with status `2`. |
+| `--rules <path>` | `AGENTS.md` | • **Optional.** <br>• Path of the agent rules file, relative to `VAULT_DIR`, such as `"Agent Office/AGENTS.md"`. <br>• Sets `RULES_FILE` in `.agent-office/config`. <br>• The vault root then gets no `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`, so your own agent sessions in the vault do not load the office rules. <br>• A reinstall without `--rules` keeps `RULES_FILE`. |
 | `--link` | Off | • **Optional.**<br>• Links the scripts to this repo instead of copying them. See [Development](#development). |
 | `--schedule` | Off | • **Optional.** <br>• Loads the `launchd` job `local.agent-office.tick` to run `.agent-office/tick.sh` every 5 minutes. |
 
 ## First run
 
-`install.sh` creates the example ticket `T-001` (`Tickets/T-001 Try Agent Office.md` for `en`) with `status: doing` and one subtask marked `(agent)`.
+`install.sh` creates the example ticket `T-001` (`Tickets/T-001 Try Agent Office.md` for `en`) with `status: doing` and one subtask marked `(agent)`. A vault that has tickets already does not get the example ticket.
 
 1. Select `T-001 Try Agent Office` in the TUI.
 2. Press `w` in the TUI, or run `.agent-office/work.sh T-001`, to start one background work session.
