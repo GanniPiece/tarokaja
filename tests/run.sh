@@ -718,9 +718,9 @@ test_tui_zh_profile() {
 }
 
 test_tui_screen_both_languages() {
-  # Draw the real curses screen in a pseudo-terminal, press keys, and quit, in en and zh-TW.
+  # Draw the real curses screen in a pseudo-terminal, press keys, and quit, in en, zh-TW, and ja.
   local lang
-  for lang in en zh-TW; do
+  for lang in en zh-TW ja; do
     sed -i '' "s/^TK_LANG=.*/TK_LANG=$lang/" "$VAULT/.tarokaja/config"
     python3 -I "$TESTS_DIR/tui_screen.py" "$VAULT" "$lang"
   done
@@ -955,6 +955,170 @@ test_logs_ignored_in_own_gitignore() {
   grep -qx 'logs/' "$v/.tarokaja/.gitignore"
 }
 
+test_install_lang_ja() {
+  local v_ja="$VAULT-ja"
+  /bin/bash "$REPO_DIR/install.sh" "$v_ja" --lang ja >/dev/null
+  grep -q '^TK_LANG=ja$' "$v_ja/.tarokaja/config"
+
+  [ -f "$v_ja/AGENTS.md" ]
+  [ "$(sed -n '1p' "$v_ja/AGENTS.md")" = "# Tarokaja のルール" ]
+
+  local t1="$v_ja/Tickets/T-001 Tarokaja を試す.md"
+  [ -f "$t1" ]
+  . "$v_ja/.tarokaja/lib.sh"
+  [ "$(fm "$t1" id)" = "T-001" ]
+  [ "$(fm "$t1" status)" = "doing" ]
+  grep -q '^## 完了条件$' "$t1"
+  grep -q '^## サブタスク$' "$t1"
+  grep -q '^## Decisions$' "$t1"
+  grep -q '^## 経過$' "$t1"
+  grep -qE '^[[:space:]]*- \[ \] .*（agent）[[:space:]]*$' "$t1"
+
+  [ -d "$v_ja/Office/会議" ]
+  [ -d "$v_ja/Office/成果物" ]
+  if [ -e "$v_ja/Office/meetings" ]; then return 1; fi
+  if [ -e "$v_ja/Office/outputs" ]; then return 1; fi
+
+  # Reinstall without --lang keeps TK_LANG=ja
+  /bin/bash "$REPO_DIR/install.sh" "$v_ja" >/dev/null
+  grep -q '^TK_LANG=ja$' "$v_ja/.tarokaja/config"
+
+  # Unknown languages still exit 2
+  local rc=0
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT-bad-ja" --lang invalid >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ]
+}
+
+test_ja_profile_and_cfg() {
+  [ -f "$REPO_DIR/template/.tarokaja/profiles/ja.conf" ]
+  [ -f "$VAULT/.tarokaja/profiles/ja.conf" ]
+
+  if grep -q '^TK_LANG=' "$VAULT/.tarokaja/config"; then
+    sed -i '' 's/^TK_LANG=.*/TK_LANG=ja/' "$VAULT/.tarokaja/config"
+  else
+    echo "TK_LANG=ja" >> "$VAULT/.tarokaja/config"
+  fi
+  unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS H_TIME MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
+    MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK WRITE_LANG MEETINGS OUTPUTS
+  . "$VAULT/.tarokaja/lib.sh"
+
+  [ "$TK_LANG" = "ja" ]
+  [ "$(cfg H_DONE fallback)" = "## 完了条件" ]
+  [ "$(cfg H_SUBTASKS fallback)" = "## サブタスク" ]
+  [ "$(cfg H_DECISIONS fallback)" = "## Decisions" ]
+  [ "$(cfg H_CRUMBS fallback)" = "## 経過" ]
+  [ "$(cfg MARK fallback)" = "（agent）" ]
+  [ "$(cfg CRUMB_STOP fallback)" = "現状：" ]
+  [ "$(cfg CRUMB_NEXT fallback)" = "次：" ]
+  [ "$(cfg CRUMB_OPENED fallback)" = "起票。" ]
+  [ "$(cfg MEETINGS_DIR fallback)" = "Office/会議" ]
+  [ "$(cfg OUTPUTS_DIR fallback)" = "Office/成果物" ]
+  [ "$(cfg SEC_WORK fallback)" = "作業セッション" ]
+  [ "$(cfg SEC_PREP fallback)" = "会議の準備" ]
+  [ "$(cfg SEC_MEETING fallback)" = "会議中" ]
+  [ "$(cfg SEC_TALK fallback)" = "マネージャーとの対話" ]
+  [ "$(cfg H_TIME fallback)" = "## 時間" ]
+  case "$(cfg WRITE_LANG fallback)" in
+    *Japanese*) ;;
+    *) return 1 ;;
+  esac
+  [ "$MEETINGS" = "Office/会議" ]
+  [ "$OUTPUTS" = "Office/成果物" ]
+}
+
+test_work_ja_vault() {
+  local v_ja="$VAULT-ja"
+  /bin/bash "$REPO_DIR/install.sh" "$v_ja" --lang ja >/dev/null
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$v_ja/.tarokaja/work.sh" T-001
+  grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q '作業セッション'
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Office/成果物/T-001/'
+}
+
+test_tui_ja_profile() {
+  if grep -q '^TK_LANG=' "$VAULT/.tarokaja/config"; then
+    sed -i '' 's/^TK_LANG=.*/TK_LANG=ja/' "$VAULT/.tarokaja/config"
+  else
+    echo "TK_LANG=ja" >> "$VAULT/.tarokaja/config"
+  fi
+  rm -f "$VAULT/Tickets/T-001 Try Tarokaja.md" "$VAULT/Tickets/T-002 Second task.md"
+  python3 -I "$TESTS_DIR/test_tui_ja.py" "$VAULT"
+
+  local out_ja
+  out_ja="$(cd "$VAULT" && python3 -I .tarokaja/tui.py --print)"
+  printf '%s\n' "$out_ja" | grep -q '要対応'
+  printf '%s\n' "$out_ja" | grep -q '未完了'
+  printf '%s\n' "$out_ja" | grep -q 'T-001'
+  printf '%s\n' "$out_ja" | grep -q 'T-002'
+}
+
+test_timelog_ja() {
+  local v_ja="$VAULT-ja-tl"
+  /bin/bash "$REPO_DIR/install.sh" "$v_ja" --lang ja --addons timelog >/dev/null
+  grep -q '^TK_LANG=ja$' "$v_ja/.tarokaja/config"
+  grep -q '^ADDONS=timelog$' "$v_ja/.tarokaja/config"
+
+  python3 -I - "$v_ja" <<'PY'
+import datetime as dt
+import os
+import subprocess
+import sys
+
+vault = sys.argv[1]
+timelog_py = os.path.join(vault, ".tarokaja", "addons", "timelog", "timelog.py")
+day_str = "2026-11-11"
+t0 = int(dt.datetime(2026, 11, 11, 10, 0, 0).timestamp())
+now = int(dt.datetime(2026, 11, 11, 14, 0, 0).timestamp())
+
+for args in [
+    ["add", "T-001", "seat_start", "s1", "--at", str(t0)],
+    ["add", "T-001", "seat_end", "s1", "--at", str(t0 + 600)],
+    ["add", "T-001", "agent_start", "bg", "--at", str(t0)],
+    ["add", "T-001", "agent_end", "bg", "--at", str(t0 + 1200)],
+]:
+    r = subprocess.run([sys.executable, "-I", timelog_py] + args, cwd=vault)
+    assert r.returncode == 0
+
+daily_path = os.path.join(vault, "Daily", f"{day_str}.md")
+os.makedirs(os.path.dirname(daily_path), exist_ok=True)
+with open(daily_path, "w", encoding="utf-8") as fh:
+    fh.write(f"# {day_str}\n")
+
+r = subprocess.run([sys.executable, "-I", timelog_py, "sync", "--now", str(now)], cwd=vault)
+assert r.returncode == 0
+
+with open(daily_path, encoding="utf-8") as fh:
+    daily_ja = fh.read()
+
+lines = daily_ja.splitlines()
+assert "## 時間" in lines, f"Missing ## 時間 in:\n{daily_ja}"
+assert "| チケット | 自分（分） | agent（分） |" in lines, f"Missing ja table header in:\n{daily_ja}"
+assert any(ln.startswith("| 合計 |") for ln in lines), f"Missing '| 合計 |' total row in:\n{daily_ja}"
+PY
+}
+
+test_week_report_titles() {
+  # The week report has a title row, says when there is no time, and lines up wide (CJK) titles
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog >/dev/null
+  local tl="$VAULT/.tarokaja/addons/timelog/timelog.py" out
+  out="$(cd "$VAULT" && python3 -I "$tl" week)"
+  [ "$(printf '%s\n' "$out" | sed -n 2p | tr -s ' ')" = "Ticket (minutes) Me Agent" ]
+  printf '%s\n' "$out" | grep -qx 'No time this week.'
+  printf -- '---\nid: T-009\nstatus: doing\n---\n# x\n' > "$VAULT/Tickets/T-009 日本語のタイトル.md"
+  local now; now="$(date +%s)"
+  python3 -I "$tl" add T-009 seat_start s --at $((now - 600))
+  python3 -I "$tl" add T-009 seat_end s --at $((now - 60))
+  sed -i '' 's/^TK_LANG=.*/TK_LANG=ja/' "$VAULT/.tarokaja/config"
+  out="$(cd "$VAULT" && python3 -I "$tl" week)"
+  printf '%s\n' "$out" | grep -q '日本語のタイトル'
+  # Every line after the first has the same screen width, so the number columns line up
+  printf '%s\n' "$out" | python3 -I -c 'import sys, unicodedata
+w = lambda s: sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+rows = sys.stdin.read().splitlines()[1:]
+assert len({w(r) for r in rows}) == 1, rows'
+}
+
 run_test "install.sh --lang on an old config, --link twice" test_lang_on_old_config_and_relink
 run_test "stream-json error result and stderr fallback" test_stream_error_result
 run_test "tui.py draws the screen and quits in en and zh-TW" test_tui_screen_both_languages
@@ -990,6 +1154,12 @@ run_test "B: install.sh --addons flag, link, and session hook" test_b_install_ad
 run_test "C: timelog add-on events, sync, Daily table, status history, and week" test_c_timelog
 run_test "D: session add-on hook, install.py, meeting resume, and headless" test_d_session
 run_test "E: tui.py week_report_lines with timelog on and off" test_e_tui_week_report
+run_test "install.sh --lang ja layout, rules, ticket, and folders" test_install_lang_ja
+run_test "ja profile and lib.sh cfg values" test_ja_profile_and_cfg
+run_test "work.sh T-001 in a ja vault" test_work_ja_vault
+run_test "tui.py with TK_LANG=ja and --print" test_tui_ja_profile
+run_test "timelog add-on with TK_LANG=ja Daily table" test_timelog_ja
+run_test "week report title row, empty week, and CJK alignment" test_week_report_titles
 
 echo ""
 echo "Summary: $PASS_COUNT passed, $FAIL_COUNT failed"

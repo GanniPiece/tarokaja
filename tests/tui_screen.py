@@ -16,6 +16,7 @@ import time
 EXPECT = {
     "en": ["Tarokaja", "Places", "Needs me", "T-001", "Subtasks", "talk to the agent"],
     "zh-TW": ["Tarokaja", "位置", "等我", "T-001", "子任務", "跟 agent 談這張卡"],
+    "ja": ["Tarokaja", "場所", "要対応", "T-001", "サブタスク", "チケットについて agent と話す"],
 }
 
 

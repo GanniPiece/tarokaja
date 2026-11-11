@@ -1,7 +1,7 @@
 # Tarokaja settings. The scripts and the TUI read this file.
 # An environment variable with the same name wins over the value here.
 
-# Language profile: en or zh-TW. It sets the ticket headings, the delegation marker,
+# Language profile: en, zh-TW, or ja. It sets the ticket headings, the delegation marker,
 # breadcrumb words, folder names, and the rules file (see profiles/<lang>.conf).
 # Any key of the profile can be set here too, such as MEETINGS_DIR=Tarokaja/會議
 # An empty value here does not clear a profile key: the profile value is used.
