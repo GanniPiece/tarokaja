@@ -20,7 +20,7 @@ cfg() { # cfg KEY DEFAULT
   echo "${v:-$2}"
 }
 TK_LANG="$(cfg TK_LANG en)"
-case "$TK_LANG" in en|zh-TW) ;; *) TK_LANG=en ;; esac
+case "$TK_LANG" in en|zh-TW|ja) ;; *) TK_LANG=en ;; esac
 AGENT_CLI="$(cfg AGENT_CLI claude)"
 MEETINGS="$(cfg MEETINGS_DIR Office/meetings)"
 OUTPUTS="$(cfg OUTPUTS_DIR Office/outputs)"

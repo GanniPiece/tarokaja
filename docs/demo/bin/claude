@@ -1,0 +1,3 @@
+#!/bin/bash
+# Stand-in for the claude CLI in the demo recording: it only waits, so the TUI shows a running session.
+sleep 20

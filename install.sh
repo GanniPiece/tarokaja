@@ -1,10 +1,10 @@
 #!/bin/bash
-# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--rules PATH] [--link] [--schedule]
+# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW|ja] [--addons timelog,session] [--rules PATH] [--link] [--schedule]
 #
 # Copies the Tarokaja template into VAULT_DIR. VAULT_DIR can be a new folder or an
 # existing Obsidian vault. Files that exist already are never overwritten.
 #   --agent     the agent CLI for all sessions (Default: claude)
-#   --lang      the language profile: ticket headings, markers, folders, rules (Default: en)
+#   --lang      the language profile en, zh-TW, or ja: ticket headings, markers, folders, rules (Default: en)
 #   --addons    the add-ons to turn on, separated by "," (timelog, session). Writes ADDONS in config.
 #               session adds Claude Code hooks to VAULT_DIR/.claude/settings.json.
 #   --rules     where the agent rules go, relative to VAULT_DIR, such as "Tarokaja/AGENTS.md".
@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
     *) vault="$1"; shift ;;
   esac
 done
-[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--rules PATH] [--link] [--schedule]" >&2; exit 2; }
+[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW|ja] [--addons timelog,session] [--rules PATH] [--link] [--schedule]" >&2; exit 2; }
 if [ "$set_rules" = 1 ]; then
   case "$rules" in
     ""|/*|../*|*/../*|*/..|*"|"*|*"&"*|*\\*|*[[:cntrl:]]*) echo "--rules needs a path inside the vault, such as \"Tarokaja/AGENTS.md\"" >&2; exit 2 ;;
@@ -48,7 +48,7 @@ if [ "$set_addons" = 1 ]; then
     [ -d "$HERE/template/.tarokaja/addons/$a" ] || { echo "Unknown add-on: $a (use timelog, session)" >&2; exit 2; }
   done
 fi
-case "${lang:-en}" in en|zh-TW) ;; *) echo "--lang must be en or zh-TW" >&2; exit 2 ;; esac
+case "${lang:-en}" in en|zh-TW|ja) ;; *) echo "--lang must be en, zh-TW, or ja" >&2; exit 2 ;; esac
 case "${agent:-claude}" in claude|codex|agy|gemini) ;; *) echo "--agent must be claude, codex, agy, or gemini" >&2; exit 2 ;; esac
 
 ok()   { echo "  ok    $*"; }
@@ -69,7 +69,7 @@ echo "Installing into $vault"
 if [ -z "$lang" ] && [ "$fresh" = 0 ]; then
   lang="$(sed -n 's/^TK_LANG=//p' "$vault/.tarokaja/config" | tail -n 1)"
 fi
-case "${lang:-en}" in en|zh-TW) lang="${lang:-en}" ;; *) lang=en ;; esac
+case "${lang:-en}" in en|zh-TW|ja) lang="${lang:-en}" ;; *) lang=en ;; esac
 # The rules file: --rules, else RULES_FILE in config, else AGENTS.md at the vault root.
 if [ "$set_rules" = 0 ] && [ "$fresh" = 0 ]; then
   rules="$(sed -n 's/^RULES_FILE=//p' "$vault/.tarokaja/config" | tail -n 1)"
@@ -107,7 +107,7 @@ fi
 if grep -q '^TK_LANG=' "$vault/.tarokaja/config"; then
   sed -i '' "s/^TK_LANG=.*/TK_LANG=$lang/" "$vault/.tarokaja/config"
 else
-  printf '\n# Language profile: en or zh-TW\nTK_LANG=%s\n' "$lang" >> "$vault/.tarokaja/config"   # config from an older version
+  printf '\n# Language profile: en, zh-TW, or ja\nTK_LANG=%s\n' "$lang" >> "$vault/.tarokaja/config"   # config from an older version
 fi
 ok "language profile: $lang"
 
@@ -190,7 +190,7 @@ Next:
   3. Start the TUI:              python3 .tarokaja/tui.py
 EOF
 if [ "$skip_example" = 1 ]; then
-  echo "  4. Open a ticket and delegate a subtask: end it with $( [ "$lang" = zh-TW ] && echo '（agent）' || echo '(agent)' )."
+  echo "  4. Open a ticket and delegate a subtask: end it with $( [ "$lang" = en ] && echo '(agent)' || echo '（agent）' )."
 else
   echo "  4. Select T-001 and follow its subtasks."
 fi

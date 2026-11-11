@@ -4,6 +4,7 @@
 |---|---|---|---|
 | 0.1 | 2026-11-11 | GanniPiece | Pre-release |
 
+- 日本語: [README.ja.md](README.ja.md)
 - Tarokaja runs an AI agent as a team member inside an Obsidian vault on macOS. It turns the vault into an office: you are the manager, and the agent works for you.
 - The name: Tarōkaja (太郎冠者) is the servant in Japanese Kyōgen theater. The master sends him on errands, and he comes back to report and to ask what to do next.
 - Tickets are plain Markdown notes, work covers notes and research in addition to code, and only the manager closes a ticket.
@@ -11,7 +12,12 @@
 - Start at [Installation](#installation) and [First run](#first-run) to set up a vault and complete ticket `T-001`.
 - Not in this document:
   - Data format and state machine specification for tool authors: [PROTOCOL.md](PROTOCOL.md)
-  - Agent session rules inside a vault: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md))
+  - Agent session rules inside a vault: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md), `ja`: [locale/ja/AGENTS.md](locale/ja/AGENTS.md))
+
+![Tarokaja TUI: the board, a ticket that waits for your decision, a work session that starts, and this week's time](docs/demo/demo.gif)
+
+- The demo uses sample tickets from [docs/demo/make-vault.sh](docs/demo/make-vault.sh) and a stand-in for the agent CLI.
+- To record it again: `vhs docs/demo/demo.tape`, from the repo root. Needs [VHS](https://github.com/charmbracelet/vhs).
 
 ## Why Tarokaja
 
@@ -76,7 +82,7 @@ flowchart LR
 |---|---|---|
 | `VAULT_DIR` | | • Target folder path. <br>• Existing files in the folder stay untouched. |
 | `--agent <cli>` | `claude` | • **Optional.** <br>• Sets `AGENT_CLI` in `.tarokaja/config` to `claude`, `codex`, `agy`, or `gemini`. |
-| `--lang <lang>` | `en` | • **Optional.**<br>• Sets the language profile: `en` or `zh-TW`. See [Language profiles](#language-profiles).<br>• A reinstall without `--lang` keeps the language in `config`. |
+| `--lang <lang>` | `en` | • **Optional.**<br>• Sets the language profile: `en`, `zh-TW`, or `ja`. See [Language profiles](#language-profiles).<br>• A reinstall without `--lang` keeps the language in `config`. |
 | `--addons <list>` | Empty | • **Optional.** <br>• Sets `ADDONS` in `.tarokaja/config` to comma-separated add-on names (`timelog`, `session`), described in [Add-ons](#add-ons). <br>• A reinstall without `--addons` keeps `ADDONS` in `config`. <br>• An unknown add-on name exits with status `2`. |
 | `--rules <path>` | `AGENTS.md` | • **Optional.** <br>• Path of the agent rules file, relative to `VAULT_DIR`, such as `"Tarokaja/AGENTS.md"`. <br>• Sets `RULES_FILE` in `.tarokaja/config`. <br>• The vault root then gets no `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`, so your own agent sessions in the vault do not load the office rules. <br>• A reinstall without `--rules` keeps `RULES_FILE`. |
 | `--link` | Off | • **Optional.**<br>• Links the scripts to this repo instead of copying them. See [Development](#development). |
@@ -141,7 +147,7 @@ The scripts read `.tarokaja/config`. An environment variable with the same name 
 
 | Key | Default | Note |
 |---|---|---|
-| `TK_LANG` | `en` | Language profile: `en` or `zh-TW`. |
+| `TK_LANG` | `en` | Language profile: `en`, `zh-TW`, or `ja`. |
 | `AGENT_CLI` | `claude` | Agent CLI for all sessions: `claude`, `codex`, `agy`, or `gemini`. |
 | `WORK_EVERY_HOURS` | `4` | Minimum hours between scheduled `work.sh` sessions on the same ticket. |
 | `WORK_HOURS_FROM` | `9` | Start hour in local 24-hour time (inclusive) for scheduled `work.sh` sessions in `tick.sh`. |
@@ -161,7 +167,7 @@ Turn on add-ons during installation or in `.tarokaja/config`:
 
 | Add-on | Behavior | Note |
 |---|---|---|
-| `timelog` | • Logs time events as `{at, kind, ref}` in `.tarokaja/logs/time/<ID>.jsonl`. <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<ID>`. <br>• Writes a per-ticket table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW`) in `Daily/YYYY-MM-DD.md` for the last 7 days. <br>• Replaces only that section of the note. Never creates a missing note. <br>• Records ticket status changes in `.tarokaja/logs/status/<ID>.jsonl`. <br>• `python3 .tarokaja/addons/timelog/timelog.py week` prints this week's time. `R` in the TUI shows the same report. | Syncs at the end of each session or meeting and on each `tick.sh` run. |
+| `timelog` | • Logs time events as `{at, kind, ref}` in `.tarokaja/logs/time/<ID>.jsonl`. <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<ID>`. <br>• Writes a per-ticket table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW` and `ja`) in `Daily/YYYY-MM-DD.md` for the last 7 days. <br>• Replaces only that section of the note. Never creates a missing note. <br>• Records ticket status changes in `.tarokaja/logs/status/<ID>.jsonl`. <br>• `python3 .tarokaja/addons/timelog/timelog.py week` prints this week's time. `R` in the TUI shows the same report. | Syncs at the end of each session or meeting and on each `tick.sh` run. |
 | `session` | • Binds one interactive Claude Code session to each ticket. <br>• Writes `session: <SID>` in ticket frontmatter and `.tarokaja/logs/sessions/<SID>.json` with the `cmux` surface and workspace. <br>• Resumes that session with `claude --resume <SID>` in the next `meeting.sh` when its transcript exists. <br>• With `timelog` on, also logs agent time for the interactive session. | • Works with `claude` only. <br>• `addons/session/install.py <VAULT_DIR>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT_DIR>/.claude/settings.json`, never to `~/.claude`, and backs up the file. <br>• `install.py <VAULT_DIR> --remove` removes only its hooks. |
 
 - For each name in `ADDONS`, the core scripts call `.tarokaja/addons/<name>/on_event <EVENT> <ID> <REF>`.
@@ -176,19 +182,19 @@ Turn on add-ons during installation or in `.tarokaja/config`:
 
 A profile sets the words that the scripts, the TUI, and the agent use in tickets. `TK_LANG` in `.tarokaja/config` selects it. The files are `.tarokaja/profiles/<lang>.conf`.
 
-| Key | `en` | `zh-TW` | Note |
-|---|---|---|---|
-| `H_DONE` | `## Done when` | `## 完成條件` | |
-| `H_SUBTASKS` | `## Subtasks` | `## 子任務` | |
-| `H_DECISIONS` | `## Decisions` | `## Decisions` | |
-| `H_CRUMBS` | `## Breadcrumbs` | `## Breadcrumb` | |
-| `H_TIME` | `## Time` | `## 時間` | Heading for the daily time table from the `timelog` add-on. |
-| `MARK` | `(agent)` | `（agent）` | Both markers count as delegated in every profile. |
-| `CRUMB_STOP`, `CRUMB_NEXT` | `Stopped:`, `Next:` | `停在：`, `下一步：` | |
-| `MEETINGS_DIR` | `Office/meetings` | `Office/會議` | |
-| `OUTPUTS_DIR` | `Office/outputs` | `Office/產出` | |
-| `RULES_FILE` | `AGENTS.md` | `AGENTS.md` | `install.sh` copies the rules of the profile language. |
-| `WRITE_LANG` | `English` | `Traditional Chinese (Taiwan)…` | The language of ticket text and of the final report |
+| Key | `en` | `zh-TW` | `ja` | Note |
+|---|---|---|---|---|
+| `H_DONE` | `## Done when` | `## 完成條件` | `## 完了条件` | |
+| `H_SUBTASKS` | `## Subtasks` | `## 子任務` | `## サブタスク` | |
+| `H_DECISIONS` | `## Decisions` | `## Decisions` | `## Decisions` | |
+| `H_CRUMBS` | `## Breadcrumbs` | `## Breadcrumb` | `## 経過` | |
+| `H_TIME` | `## Time` | `## 時間` | `## 時間` | Heading for the daily time table from the `timelog` add-on. |
+| `MARK` | `(agent)` | `（agent）` | `（agent）` | Both markers count as delegated in every profile. |
+| `CRUMB_STOP`, `CRUMB_NEXT` | `Stopped:`, `Next:` | `停在：`, `下一步：` | `現状：`, `次：` | |
+| `MEETINGS_DIR` | `Office/meetings` | `Office/會議` | `Office/会議` | |
+| `OUTPUTS_DIR` | `Office/outputs` | `Office/產出` | `Office/成果物` | |
+| `RULES_FILE` | `AGENTS.md` | `AGENTS.md` | `AGENTS.md` | `install.sh` copies the rules of the profile language. |
+| `WRITE_LANG` | `English` | `Traditional Chinese (Taiwan)…` | `Japanese…` | The language of ticket text and of the final report |
 
 - You can set each key in `.tarokaja/config` too. Order: environment variable, `config`, profile, built-in default.
 - Example: a vault that keeps its meeting notes in another folder sets `MEETINGS_DIR=Tarokaja/會議` in `config`.

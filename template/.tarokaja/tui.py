@@ -42,7 +42,7 @@ def load_settings():
     """Settings in the same order as lib.sh: environment, config, profile, default."""
     config = _conf(os.path.join(TK_DIR, "config"))
     lang = os.environ.get("TK_LANG") or config.get("TK_LANG") or "en"
-    if lang not in ("en", "zh-TW"):
+    if lang not in ("en", "zh-TW", "ja"):
         lang = "en"
     profile = _conf(os.path.join(TK_DIR, "profiles", lang + ".conf"))
     defaults = {"H_DONE": "## Done when", "H_SUBTASKS": "## Subtasks", "H_DECISIONS": "## Decisions",
@@ -92,8 +92,46 @@ ZH = {
 }
 
 
+JA = {
+    "Places": "場所", "Needs me": "要対応", "All open": "未完了", "Closed": "完了済み", "Other": "その他",
+    "(no tickets)": "（チケットなし）", "? for help": "? でヘルプ", "Reloaded": "再読み込みしました",
+    " ⚙ running  ? decide  ✓ review  · delegated ": " ⚙ 実行中  ? 決定待ち  ✓ 検収待ち  · 委任済み ",
+    "Move        up/down or j/k    Column  left/right, h/l, Tab": "移動        上下 または j/k   列の切替  左右、h/l、Tab",
+    "Enter / t   talk to the agent about the ticket": "Enter / t   チケットについて agent と話す",
+    "m           hold the meeting            M  set the meeting time": "m           会議を開く                  M  会議の時刻を設定",
+    "w           start a work session now    p  write the meeting agenda now": "w           今すぐ作業セッション        p  今すぐアジェンダを作成",
+    "s           set the status              n  new ticket": "s           status を変更               n  新しいチケット",
+    "o           open the ticket in Obsidian r  reload       q  quit": "o           Obsidian で開く             r  再読み込み  q  終了",
+    "R           this week's time (timelog add-on)": "R           今週の時間（timelog add-on）",
+    "Time log is off. Add timelog to ADDONS in .tarokaja/config.": "時間記録がオフです。.tarokaja/config の ADDONS に timelog を加えてください。",
+    "Make the window bigger (60x10 at least).": "ウィンドウを大きくしてください（60x10 以上）。",
+    " Tarokaja   %s needs you   %s running": " Tarokaja   要対応 %s 件   実行中 %s 件",
+    "⚙ background %s session running": "⚙ バックグラウンドの %s セッション実行中",
+    "Agent waits for you: %s": "Agent があなたを待っています：%s", "Waiting on: ": "待ち：", "Next meeting: ": "次の会議：",
+    "Subtasks %d/%d": "サブタスク %d/%d", "Breadcrumbs": "経過", "Last work session": "前回の作業セッション",
+    "Status: i inbox  b backlog  t todo  d doing  w waiting  o done  x dropped > ":
+        "Status：i inbox  b backlog  t todo  d doing  w waiting  o done  x dropped > ",
+    "%s opened in a split on the right": "%s を右の split で開きました", "%s ended": "%s が終了しました",
+    "Talk with %s": "%s について話す", "Meeting for %s": "%s の会議",
+    "New ticket title (%s): ": "新しいチケットのタイトル（%s）：", "%s opened in inbox": "%s を起票しました（inbox）",
+    "Title is empty": "タイトルが空です", "Cannot create the ticket: %s": "チケットを作れません：%s",
+    "%s has no subtask marked (agent). Talk to the agent to delegate one.": "%s に（agent）のサブタスクがありません。agent と話して 1 つ任せてください。",
+    "%s is %s. Work sessions run only on doing tickets.": "%s は %s です。作業セッションは doing のチケットだけで動きます。",
+    "%s waits for you (%s). Hold a meeting first (m).": "%s があなたを待っています（%s）。先に会議を開いてください（m）。",
+    "%s already has a session running": "%s はすでにセッション実行中です", "%s work session started": "%s の作業セッションを開始しました",
+    "Set the meeting time first (M)": "先に会議の時刻を設定してください（M）", "%s agenda is being written": "%s のアジェンダを作成中です",
+    "%s has a session running. Change it after the session ends.": "%s はセッション実行中です。終了後に変更してください。",
+    "Meeting time YYYY-MM-DD HH:MM (empty clears): ": "会議の時刻 YYYY-MM-DD HH:MM（空欄でクリア）：",
+    "%s meeting: %s": "%s の会議：%s", "cleared": "クリアしました", "Use the format YYYY-MM-DD HH:MM": "形式は YYYY-MM-DD HH:MM です",
+    "%s is now %s": "%s は %s になりました", "Opened %s in Obsidian": "%s を Obsidian で開きました",
+    "Status: %s → %s.": "status：%s → %s。", "due ": "期限 ",
+}
+
+UI = {"zh-TW": ZH, "ja": JA}.get(LANG, {})
+
+
 def _(text):
-    return ZH.get(text, text) if LANG == "zh-TW" else text
+    return UI.get(text, text)
 
 
 STATUSES = ["inbox", "backlog", "todo", "doing", "waiting", "done", "dropped"]

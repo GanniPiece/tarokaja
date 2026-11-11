@@ -8,7 +8,7 @@
 - Enables third-party tools to read and write the same Obsidian vault without data loss.
 - Read [Roles](#roles), [Ticket format](#ticket-format), and [State machine](#state-machine) first.
 - Not in this document:
-  - Agent behavior rules inside a session: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md))
+  - Agent behavior rules inside a session: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md), `ja`: [locale/ja/AGENTS.md](locale/ja/AGENTS.md))
   - macOS reference scripts and terminal UI guide: [README.md](README.md)
 
 ## Roles
@@ -36,17 +36,17 @@
 
 A vault uses one language profile, set by `TK_LANG` in `.tarokaja/config`. The profile sets the words in this document that are shown in the `en` form. The reference values are in `template/.tarokaja/profiles/<lang>.conf`.
 
-| Item | `en` | `zh-TW` |
-|---|---|---|
-| Done heading | `## Done when` | `## 完成條件` |
-| Subtasks heading | `## Subtasks` | `## 子任務` |
-| Decisions heading | `## Decisions` | `## Decisions` |
-| Breadcrumbs heading | `## Breadcrumbs` | `## Breadcrumb` |
-| Time heading (`H_TIME`) | `## Time` | `## 時間` |
-| Delegation marker | `(agent)` | `（agent）` |
-| Breadcrumb words | `Stopped:`, `Next:` | `停在：`, `下一步：` |
-| Meetings folder | `Office/meetings` | `Office/會議` |
-| Outputs folder | `Office/outputs` | `Office/產出` |
+| Item | `en` | `zh-TW` | `ja` |
+|---|---|---|---|
+| Done heading | `## Done when` | `## 完成條件` | `## 完了条件` |
+| Subtasks heading | `## Subtasks` | `## 子任務` | `## サブタスク` |
+| Decisions heading | `## Decisions` | `## Decisions` | `## Decisions` |
+| Breadcrumbs heading | `## Breadcrumbs` | `## Breadcrumb` | `## 経過` |
+| Time heading (`H_TIME`) | `## Time` | `## 時間` | `## 時間` |
+| Delegation marker | `(agent)` | `（agent）` | `（agent）` |
+| Breadcrumb words | `Stopped:`, `Next:` | `停在：`, `下一步：` | `現状：`, `次：` |
+| Meetings folder | `Office/meetings` | `Office/會議` | `Office/会議` |
+| Outputs folder | `Office/outputs` | `Office/產出` | `Office/成果物` |
 
 - A tool writes the words of the vault's profile.
 - A tool reads both delegation markers in every profile.
@@ -263,7 +263,7 @@ Tools coordinate background and interactive sessions through `.tarokaja/logs/`:
 
 | Add-on | Files and settings | Behavior | Note |
 |---|---|---|---|
-| `timelog` | • `addons/timelog/on_event` <br>• `addons/timelog/timelog.py` <br>• `logs/time/<id>.jsonl` <br>• `logs/status/<id>.jsonl` | • Maps `session_start`, `session_tick`, and `session_end` to `agent_start`, `agent_tick`, and `agent_end` (`ref` = `bg`). <br>• Maps `meeting_start`, `meeting_tick`, and `meeting_end` to `seat_start`, `ping`, and `seat_end` (`ref` = `<pid>`). <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<id>`. <br>• Writes a table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW`) in `Daily/YYYY-MM-DD.md` for the last 7 days. It replaces only that section. It never creates a missing note. <br>• Records status changes in `logs/status/<id>.jsonl` on `tick`. <br>• `timelog.py week` prints this week's time per ticket (`R` in the TUI). | • Merges overlapping intervals of one kind. <br>• A gap of more than 900 seconds between two events cuts the interval at the earlier event. <br>• An interval without an end event ends at the current time when its last event is 900 seconds old or less. Otherwise it ends at its last event. |
+| `timelog` | • `addons/timelog/on_event` <br>• `addons/timelog/timelog.py` <br>• `logs/time/<id>.jsonl` <br>• `logs/status/<id>.jsonl` | • Maps `session_start`, `session_tick`, and `session_end` to `agent_start`, `agent_tick`, and `agent_end` (`ref` = `bg`). <br>• Maps `meeting_start`, `meeting_tick`, and `meeting_end` to `seat_start`, `ping`, and `seat_end` (`ref` = `<pid>`). <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<id>`. <br>• Writes a table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW` and `ja`) in `Daily/YYYY-MM-DD.md` for the last 7 days. It replaces only that section. It never creates a missing note. <br>• Records status changes in `logs/status/<id>.jsonl` on `tick`. <br>• `timelog.py week` prints this week's time per ticket (`R` in the TUI). | • Merges overlapping intervals of one kind. <br>• A gap of more than 900 seconds between two events cuts the interval at the earlier event. <br>• An interval without an end event ends at the current time when its last event is 900 seconds old or less. Otherwise it ends at its last event. |
 | `session` | • `addons/session/install.py` <br>• `addons/session/hook.py` <br>• `<VAULT>/.claude/settings.json` <br>• `logs/sessions/<sid>.json` | • `install.py <VAULT>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT>/.claude/settings.json`, never to `~/.claude`, and backs up an existing file. <br>• `install.py <VAULT> --remove` removes only its hooks. <br>• When `meeting.sh` sets `TK_TICKET` and leaves `TK_HEADLESS` empty, `hook.py` writes `session: <sid>` in the ticket frontmatter and writes `logs/sessions/<sid>.json`. <br>• The next `meeting.sh` passes `--resume <sid>` to `claude` when `~/.claude/projects/*/<sid>.jsonl` exists. <br>• With `timelog` in `ADDONS`, `hook.py` also logs `agent_start`, `agent_tick` (at most once per 60 s), and `agent_end` with `ref` = `<sid>`. | Claude Code (`AGENT_CLI=claude`) only. |
 
 ## Conformance
