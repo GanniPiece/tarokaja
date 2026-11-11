@@ -15,7 +15,7 @@ dir="$(agent_dir_of "$f")"
 if [ -n "$dir" ]; then
   case "$dir" in /*) ;; *) echo "$id agent_dir is not an absolute path: $dir" >&2; exit 1 ;; esac
   [ -d "$dir" ] || { echo "$id agent_dir is not a folder: $dir" >&2; exit 1; }
-  agent_dir_allowed "$dir" || { echo "$id agent_dir is not inside AGENT_DIR_ROOTS in .agent-office/config: $dir" >&2; log "work refuse $id: agent_dir $dir"; exit 1; }
+  agent_dir_allowed "$dir" || { echo "$id agent_dir is not inside AGENT_DIR_ROOTS in .tarokaja/config: $dir" >&2; log "work refuse $id: agent_dir $dir"; exit 1; }
   dir="$(cd "$dir" && pwd -P)"   # give the agent the checked path, not a symlink
 fi
 require_agent

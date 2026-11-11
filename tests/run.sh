@@ -1,5 +1,5 @@
 #!/bin/bash
-# Automated test suite for Agent Office (compatible with macOS bash 3.2).
+# Automated test suite for Tarokaja (compatible with macOS bash 3.2).
 set -u
 
 TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -29,14 +29,14 @@ run_test() {
     : > "$STUB_AGENT_LOG"
     : > "$STUB_NOTIFY_LOG"
 
-    unset AGENT_CLI WORK_EVERY_HOURS WORK_HOURS_FROM WORK_HOURS_TO PREP_BEFORE_MIN REMIND_BEFORE_MIN AO_NOW AO_HOUR ADDONS AO_TICKET AO_HEADLESS
+    unset AGENT_CLI WORK_EVERY_HOURS WORK_HOURS_FROM WORK_HOURS_TO PREP_BEFORE_MIN REMIND_BEFORE_MIN TK_NOW TK_HOUR ADDONS TK_TICKET TK_HEADLESS
     # Profile keys: a developer's shell must not change the results
-    unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS H_TIME MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
-      MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK WRITE_LANG AGENT_DIR_ROOTS AO_LANG MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+    unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS H_TIME MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
+      MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK WRITE_LANG AGENT_DIR_ROOTS TK_LANG MEETINGS_DIR OUTPUTS_DIR RULES_FILE
 
     VAULT="$test_tmp/vault"
     export VAULT
-    export AO_FOREGROUND=1   # tick.sh runs sessions in the foreground, so tests can check them at once
+    export TK_FOREGROUND=1   # tick.sh runs sessions in the foreground, so tests can check them at once
     /bin/bash "$REPO_DIR/install.sh" "$VAULT" >/dev/null
     "$fn"
   )
@@ -61,15 +61,15 @@ test_install_layout_and_dates() {
   [ -f "$VAULT/CLAUDE.md" ]
   [ -f "$VAULT/GEMINI.md" ]
   [ -f "$VAULT/Tickets/Board.base" ]
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
   [ -f "$t1" ]
-  [ -f "$VAULT/.agent-office/lib.sh" ]
-  [ -f "$VAULT/.agent-office/config" ]
-  [ -x "$VAULT/.agent-office/work.sh" ]
-  [ -x "$VAULT/.agent-office/prep.sh" ]
-  [ -x "$VAULT/.agent-office/meeting.sh" ]
-  [ -x "$VAULT/.agent-office/tick.sh" ]
-  [ -x "$VAULT/.agent-office/tui.py" ]
+  [ -f "$VAULT/.tarokaja/lib.sh" ]
+  [ -f "$VAULT/.tarokaja/config" ]
+  [ -x "$VAULT/.tarokaja/work.sh" ]
+  [ -x "$VAULT/.tarokaja/prep.sh" ]
+  [ -x "$VAULT/.tarokaja/meeting.sh" ]
+  [ -x "$VAULT/.tarokaja/tick.sh" ]
+  [ -x "$VAULT/.tarokaja/tui.py" ]
 
   local today
   today="$(date +%F)"
@@ -83,7 +83,7 @@ test_install_agent_flag_and_invalid() {
   local v2
   v2="$(mktemp -d "${TMPDIR:-/tmp}/ao-v2.XXXXXX")"
   /bin/bash "$REPO_DIR/install.sh" "$v2" --agent codex >/dev/null
-  grep -q '^AGENT_CLI=codex$' "$v2/.agent-office/config"
+  grep -q '^AGENT_CLI=codex$' "$v2/.tarokaja/config"
   rm -rf "$v2"
 
   local v3
@@ -97,10 +97,10 @@ test_install_agent_flag_and_invalid() {
 
 test_install_second_run_does_not_overwrite() {
   echo "custom-marker-line" >> "$VAULT/AGENTS.md"
-  echo "custom-ticket-line" >> "$VAULT/Tickets/T-001 Try Agent Office.md"
+  echo "custom-ticket-line" >> "$VAULT/Tickets/T-001 Try Tarokaja.md"
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" >/dev/null
   grep -q '^custom-marker-line$' "$VAULT/AGENTS.md"
-  grep -q '^custom-ticket-line$' "$VAULT/Tickets/T-001 Try Agent Office.md"
+  grep -q '^custom-ticket-line$' "$VAULT/Tickets/T-001 Try Tarokaja.md"
 }
 
 # ---------------------------------------------------------------------------
@@ -108,7 +108,7 @@ test_install_second_run_does_not_overwrite() {
 # ---------------------------------------------------------------------------
 
 test_lib_fm_and_cfg() {
-  . "$VAULT/.agent-office/lib.sh"
+  . "$VAULT/.tarokaja/lib.sh"
 
   local sample="$VAULT/Tickets/sample.md"
   cat > "$sample" <<'EOF'
@@ -132,7 +132,7 @@ EOF
 }
 
 test_lib_delegated_ticket_file_to_epoch() {
-  . "$VAULT/.agent-office/lib.sh"
+  . "$VAULT/.tarokaja/lib.sh"
 
   local f1="$VAULT/Tickets/T-010 Owner Agent.md"
   cat > "$f1" <<'EOF'
@@ -172,7 +172,7 @@ EOF
 
   local found
   found="$(ticket_file T-001)"
-  [ "$found" = "$VAULT/Tickets/T-001 Try Agent Office.md" ]
+  [ "$found" = "$VAULT/Tickets/T-001 Try Tarokaja.md" ]
   if ticket_file T-999 >/dev/null 2>&1; then
     return 1
   fi
@@ -191,56 +191,56 @@ EOF
 # ---------------------------------------------------------------------------
 
 test_work_guards() {
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
 
   # Status not doing -> exits 0 without calling agent
   sed -i '' 's/^status: doing$/status: waiting/' "$t1"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001 >/dev/null 2>&1
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001 >/dev/null 2>&1
   [ ! -s "$STUB_AGENT_LOG" ]
 
   # agent_state set -> exits 0 without calling agent
   sed -i '' 's/^status: waiting$/status: doing/' "$t1"
   sed -i '' 's/^agent_state:$/agent_state: decide/' "$t1"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001 >/dev/null 2>&1
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001 >/dev/null 2>&1
   [ ! -s "$STUB_AGENT_LOG" ]
 
   # No (agent) subtask -> exits non-zero
   sed -i '' 's/^agent_state: decide$/agent_state:/' "$t1"
   sed -i '' 's/^- \[ \] \(.* (agent)\)$/- [x] \1/' "$t1"
-  if /bin/bash "$VAULT/.agent-office/work.sh" T-001 >/dev/null 2>&1; then
+  if /bin/bash "$VAULT/.tarokaja/work.sh" T-001 >/dev/null 2>&1; then
     return 1
   fi
   [ ! -s "$STUB_AGENT_LOG" ]
 }
 
 test_work_valid_claude_session() {
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
 
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
   grep -q '^ARG: -p$' "$STUB_AGENT_LOG"
   grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS.md'
-  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tickets/T-001 Try Agent Office.md'
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tickets/T-001 Try Tarokaja.md'
 
-  [ -f "$VAULT/.agent-office/logs/T-001-last-work.txt" ]
-  grep -q 'stub result text' "$VAULT/.agent-office/logs/T-001-last-work.txt"
-  [ -s "$VAULT/.agent-office/logs/T-001.last-work" ]
-  [ ! -e "$VAULT/.agent-office/logs/T-001.pid" ]
+  [ -f "$VAULT/.tarokaja/logs/T-001-last-work.txt" ]
+  grep -q 'stub result text' "$VAULT/.tarokaja/logs/T-001-last-work.txt"
+  [ -s "$VAULT/.tarokaja/logs/T-001.last-work" ]
+  [ ! -e "$VAULT/.tarokaja/logs/T-001.pid" ]
   grep -q '^- 2026-01-01 10:00 · \[agent\] Stopped: stub\. Next: stub\.$' "$t1"
 }
 
 test_work_codex_and_agent_dir() {
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
 
   # AGENT_CLI=codex calls codex with exec
-  AGENT_CLI=codex /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  AGENT_CLI=codex /bin/bash "$VAULT/.tarokaja/work.sh" T-001
   grep -q '^CMD: codex$' "$STUB_AGENT_LOG"
   grep -q '^ARG: exec$' "$STUB_AGENT_LOG"
 
   # Relative agent_dir -> exits non-zero
   : > "$STUB_AGENT_LOG"
   sed -i '' 's/^links: \[\]$/agent_dir: relative\/path/' "$t1"
-  if /bin/bash "$VAULT/.agent-office/work.sh" T-001 >/dev/null 2>&1; then
+  if /bin/bash "$VAULT/.tarokaja/work.sh" T-001 >/dev/null 2>&1; then
     return 1
   fi
   [ ! -s "$STUB_AGENT_LOG" ]
@@ -251,12 +251,12 @@ test_work_codex_and_agent_dir() {
   ext_dir="$(cd "$ext_dir" && pwd)"
   sed -i '' "s|^agent_dir: .*|agent_dir: $ext_dir|" "$t1"
   : > "$STUB_AGENT_LOG"
-  if /bin/bash "$VAULT/.agent-office/work.sh" T-001 2>/dev/null; then return 1; fi
+  if /bin/bash "$VAULT/.tarokaja/work.sh" T-001 2>/dev/null; then return 1; fi
   [ ! -s "$STUB_AGENT_LOG" ]
 
   # Inside AGENT_DIR_ROOTS -> claude stub gets --add-dir
-  sed -i '' "s|^AGENT_DIR_ROOTS=.*|AGENT_DIR_ROOTS=$(dirname "$ext_dir")|" "$VAULT/.agent-office/config"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  sed -i '' "s|^AGENT_DIR_ROOTS=.*|AGENT_DIR_ROOTS=$(dirname "$ext_dir")|" "$VAULT/.tarokaja/config"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
   grep -q '^ARG: --add-dir$' "$STUB_AGENT_LOG"
   # work.sh gives the agent the resolved path (no symlinks), as agent_dir_allowed checked it
@@ -268,37 +268,37 @@ test_work_codex_and_agent_dir() {
 # ---------------------------------------------------------------------------
 
 test_tick_work_hours_and_throttling() {
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
   local now=1700000000
 
   # Skips outside work hours
-  AO_NOW="$now" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$now" TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ ! -s "$STUB_AGENT_LOG" ]
-  AO_NOW="$now" AO_HOUR=08 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$now" TK_HOUR=08 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ ! -s "$STUB_AGENT_LOG" ]
 
   # Skips when ticket has agent_state
   sed -i '' 's/^agent_state:$/agent_state: decide/' "$t1"
-  AO_NOW="$now" AO_HOUR=10 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$now" TK_HOUR=10 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ ! -s "$STUB_AGENT_LOG" ]
   sed -i '' 's/^agent_state: decide$/agent_state:/' "$t1"
 
   # Skips when logs/<id>.last-work is newer than WORK_EVERY_HOURS (4h)
-  mkdir -p "$VAULT/.agent-office/logs"
-  echo "$((now - 3600))" > "$VAULT/.agent-office/logs/T-001.last-work"
-  AO_NOW="$now" AO_HOUR=10 /bin/bash "$VAULT/.agent-office/tick.sh"
+  mkdir -p "$VAULT/.tarokaja/logs"
+  echo "$((now - 3600))" > "$VAULT/.tarokaja/logs/T-001.last-work"
+  TK_NOW="$now" TK_HOUR=10 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ ! -s "$STUB_AGENT_LOG" ]
 
   # Runs work inside work hours when last-work is older than WORK_EVERY_HOURS
-  echo "$((now - 5 * 3600))" > "$VAULT/.agent-office/logs/T-001.last-work"
-  AO_NOW="$now" AO_HOUR=10 /bin/bash "$VAULT/.agent-office/tick.sh"
+  echo "$((now - 5 * 3600))" > "$VAULT/.tarokaja/logs/T-001.last-work"
+  TK_NOW="$now" TK_HOUR=10 /bin/bash "$VAULT/.tarokaja/tick.sh"
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
   grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'run one work session on T-001'
 }
 
 test_tick_prep_and_reminder() {
-  . "$VAULT/.agent-office/lib.sh"
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  . "$VAULT/.tarokaja/lib.sh"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
   local m_str="2026-11-11 15:00"
   local m_epoch
   m_epoch="$(to_epoch "$m_str")"
@@ -308,7 +308,7 @@ test_tick_prep_and_reminder() {
   # Within PREP_BEFORE_MIN (30 min before) -> calls prep with agenda path under Office/meetings
   : > "$STUB_AGENT_LOG"
   : > "$STUB_NOTIFY_LOG"
-  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=14 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 30 * 60))" TK_HOUR=14 /bin/bash "$VAULT/.tarokaja/tick.sh"
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
   grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Office/meetings/2026-11-11 1500 T-001.md'
   [ ! -s "$STUB_NOTIFY_LOG" ]
@@ -316,10 +316,10 @@ test_tick_prep_and_reminder() {
   # Within REMIND_BEFORE_MIN (3 min before) -> sends one reminder notification and not a second time on next tick
   : > "$STUB_AGENT_LOG"
   : > "$STUB_NOTIFY_LOG"
-  AO_NOW="$((m_epoch - 3 * 60))" AO_HOUR=14 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 3 * 60))" TK_HOUR=14 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ "$(grep -c 'Meeting soon: T-001' "$STUB_NOTIFY_LOG")" -eq 1 ]
 
-  AO_NOW="$((m_epoch - 2 * 60))" AO_HOUR=14 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 2 * 60))" TK_HOUR=14 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ "$(grep -c 'Meeting soon: T-001' "$STUB_NOTIFY_LOG")" -eq 1 ]
 }
 
@@ -331,7 +331,7 @@ test_tui_module_and_print() {
   python3 -I "$TESTS_DIR/test_tui.py" "$VAULT"
 
   local out
-  out="$(cd "$VAULT" && python3 -I .agent-office/tui.py --print)"
+  out="$(cd "$VAULT" && python3 -I .tarokaja/tui.py --print)"
   printf '%s\n' "$out" | grep -q 'T-001'
 }
 
@@ -341,12 +341,12 @@ test_tui_module_and_print() {
 
 test_install_keeps_config_and_bad_args() {
   # A reinstall without --agent keeps the user's AGENT_CLI
-  sed -i '' 's/^AGENT_CLI=.*/AGENT_CLI=codex/' "$VAULT/.agent-office/config"
+  sed -i '' 's/^AGENT_CLI=.*/AGENT_CLI=codex/' "$VAULT/.tarokaja/config"
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" >/dev/null
-  grep -q '^AGENT_CLI=codex$' "$VAULT/.agent-office/config"
+  grep -q '^AGENT_CLI=codex$' "$VAULT/.tarokaja/config"
   # A reinstall with --agent changes it
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" --agent agy >/dev/null
-  grep -q '^AGENT_CLI=agy$' "$VAULT/.agent-office/config"
+  grep -q '^AGENT_CLI=agy$' "$VAULT/.tarokaja/config"
   # --agent as the last argument exits with an error and does not hang
   local rc=0
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" --agent >/dev/null 2>&1 || rc=$?
@@ -354,12 +354,12 @@ test_install_keeps_config_and_bad_args() {
 }
 
 test_lock_and_denied_paths() {
-  . "$VAULT/.agent-office/lib.sh"
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  . "$VAULT/.tarokaja/lib.sh"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
   # A stale lock (dead pid) is removed and the session runs
   mkdir -p "$LOG_DIR/T-001.lock"
   echo 999999 > "$LOG_DIR/T-001.lock/pid"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
   [ ! -e "$LOG_DIR/T-001.lock" ]
   # A live lock (this shell's pid) skips the session
@@ -367,17 +367,17 @@ test_lock_and_denied_paths() {
   rm -f "$LOG_DIR/T-001.last-work"
   mkdir -p "$LOG_DIR/T-001.lock"
   echo $$ > "$LOG_DIR/T-001.lock/pid"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
   [ ! -s "$STUB_AGENT_LOG" ]
   rm -rf "$LOG_DIR/T-001.lock"
-  # Claude Code gets deny rules for private/, .obsidian/, .trash/, and .agent-office/
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  # Claude Code gets deny rules for private/, .obsidian/, .trash/, and .tarokaja/
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
   local denied
   denied="$(grep -A1 '^ARG: --disallowedTools$' "$STUB_AGENT_LOG" | tail -n 1)"
   case "$denied" in *'Read(./private/**)'*) ;; *) return 1 ;; esac
   case "$denied" in *'Edit(./.obsidian/**)'*) ;; *) return 1 ;; esac
   case "$denied" in *'Read(./.trash/**)'*) ;; *) return 1 ;; esac
-  case "$denied" in *'Edit(./.agent-office/**)'*) ;; *) return 1 ;; esac
+  case "$denied" in *'Edit(./.tarokaja/**)'*) ;; *) return 1 ;; esac
 }
 
 test_no_personal_data() {
@@ -385,16 +385,16 @@ test_no_personal_data() {
 }
 
 test_meeting_blocks_work_and_prep_once() {
-  . "$VAULT/.agent-office/lib.sh"
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  . "$VAULT/.tarokaja/lib.sh"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
   # A live meeting (this shell's pid) blocks tick and work.sh
   echo $$ > "$LOG_DIR/T-001.meeting.pid"
-  AO_HOUR=10 /bin/bash "$VAULT/.agent-office/tick.sh"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001 2>/dev/null
+  TK_HOUR=10 /bin/bash "$VAULT/.tarokaja/tick.sh"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001 2>/dev/null
   [ ! -s "$STUB_AGENT_LOG" ]
   # A dead meeting pid does not block
   echo 999999 > "$LOG_DIR/T-001.meeting.pid"
-  AO_HOUR=10 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_HOUR=10 /bin/bash "$VAULT/.tarokaja/tick.sh"
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
 
   # Prep: one try per meeting, also when no agenda is written
@@ -403,11 +403,11 @@ test_meeting_blocks_work_and_prep_once() {
   local m_epoch; m_epoch="$(to_epoch "$m")"
   printf '#!/bin/bash\necho "no agenda"\n' > "$HOME/.local/bin/claude"; chmod +x "$HOME/.local/bin/claude"
   : > "$STUB_AGENT_LOG"
-  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 30 * 60))" TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ -f "$LOG_DIR/T-001.prepped-2030-01-01 1500" ]
   grep -q 'prep start T-001' "$LOG_DIR/agent.log"
   local n1; n1="$(grep -c 'prep start T-001' "$LOG_DIR/agent.log")"
-  AO_NOW="$((m_epoch - 25 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 25 * 60))" TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ "$(grep -c 'prep start T-001' "$LOG_DIR/agent.log")" -eq "$n1" ]
 }
 
@@ -420,20 +420,20 @@ test_plist_keeps_sessions_and_escapes_path() {
   esc="$(printf '%s' "$xml" | sed -e 's/[\\&|]/\\&/g')"
   sed -e "s|__VAULT__|$esc|g" -e "s|__LABEL__|x|g" "$REPO_DIR/launchd/tick.plist" > "$out"
   plutil -lint "$out" >/dev/null
-  [ "$(plutil -extract ProgramArguments.1 raw "$out")" = "$vault/.agent-office/tick.sh" ]
+  [ "$(plutil -extract ProgramArguments.1 raw "$out")" = "$vault/.tarokaja/tick.sh" ]
   grep -qF "$(sed -n '/Escape the path for XML/,/plutil -lint/p' "$REPO_DIR/install.sh" | grep 'xml=')" "$REPO_DIR/install.sh"
 }
 
 test_profiles_and_cfg_precedence() {
-  [ -f "$REPO_DIR/template/.agent-office/profiles/en.conf" ]
-  [ -f "$REPO_DIR/template/.agent-office/profiles/zh-TW.conf" ]
-  [ -f "$VAULT/.agent-office/profiles/en.conf" ]
-  [ -f "$VAULT/.agent-office/profiles/zh-TW.conf" ]
+  [ -f "$REPO_DIR/template/.tarokaja/profiles/en.conf" ]
+  [ -f "$REPO_DIR/template/.tarokaja/profiles/zh-TW.conf" ]
+  [ -f "$VAULT/.tarokaja/profiles/en.conf" ]
+  [ -f "$VAULT/.tarokaja/profiles/zh-TW.conf" ]
 
-  unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
-  . "$VAULT/.agent-office/lib.sh"
+  unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+  . "$VAULT/.tarokaja/lib.sh"
 
-  # Default profile (AO_LANG=en)
+  # Default profile (TK_LANG=en)
   [ "$(cfg H_DONE fallback)" = "## Done when" ]
   [ "$(cfg H_SUBTASKS fallback)" = "## Subtasks" ]
   [ "$(cfg H_DECISIONS fallback)" = "## Decisions" ]
@@ -445,14 +445,14 @@ test_profiles_and_cfg_precedence() {
   [ "$(cfg OUTPUTS_DIR fallback)" = "Office/outputs" ]
   [ "$(cfg RULES_FILE fallback)" = "AGENTS.md" ]
 
-  # AO_LANG=zh-TW in config selects zh-TW profile
-  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
-    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  # TK_LANG=zh-TW in config selects zh-TW profile
+  if grep -q '^TK_LANG=' "$VAULT/.tarokaja/config"; then
+    sed -i '' 's/^TK_LANG=.*/TK_LANG=zh-TW/' "$VAULT/.tarokaja/config"
   else
-    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+    echo "TK_LANG=zh-TW" >> "$VAULT/.tarokaja/config"
   fi
-  unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
-  . "$VAULT/.agent-office/lib.sh"
+  unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+  . "$VAULT/.tarokaja/lib.sh"
 
   [ "$(cfg H_DONE fallback)" = "## 完成條件" ]
   [ "$(cfg H_SUBTASKS fallback)" = "## 子任務" ]
@@ -465,13 +465,13 @@ test_profiles_and_cfg_precedence() {
   [ "$(cfg OUTPUTS_DIR fallback)" = "Office/產出" ]
   [ "$(cfg RULES_FILE fallback)" = "AGENTS.md" ]
 
-  # Precedence: env > .agent-office/config > selected profile > DEFAULT
+  # Precedence: env > .tarokaja/config > selected profile > DEFAULT
   [ "$(cfg UNSET_KEY_XYZ my_default)" = "my_default" ]
   unset OUTPUTS_DIR
   [ "$(cfg OUTPUTS_DIR my_default)" = "Office/產出" ]
-  echo "OUTPUTS_DIR=Custom/outputs" >> "$VAULT/.agent-office/config"
+  echo "OUTPUTS_DIR=Custom/outputs" >> "$VAULT/.tarokaja/config"
   unset OUTPUTS_DIR
-  . "$VAULT/.agent-office/lib.sh"
+  . "$VAULT/.tarokaja/lib.sh"
   [ "$(cfg OUTPUTS_DIR my_default)" = "Custom/outputs" ]
   [ "$(OUTPUTS_DIR=Env/outputs cfg OUTPUTS_DIR my_default)" = "Env/outputs" ]
 }
@@ -509,97 +509,97 @@ owner:
 EOF
 
   # en profile accepts both (agent) and （agent）
-  unset AO_LANG
-  . "$VAULT/.agent-office/lib.sh"
+  unset TK_LANG
+  . "$VAULT/.tarokaja/lib.sh"
   delegated "$f_fw"
   delegated "$f_hw"
   if delegated "$f_done"; then return 1; fi
 
   # zh-TW profile accepts both (agent) and （agent）
-  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
-    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  if grep -q '^TK_LANG=' "$VAULT/.tarokaja/config"; then
+    sed -i '' 's/^TK_LANG=.*/TK_LANG=zh-TW/' "$VAULT/.tarokaja/config"
   else
-    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+    echo "TK_LANG=zh-TW" >> "$VAULT/.tarokaja/config"
   fi
-  unset AO_LANG
-  . "$VAULT/.agent-office/lib.sh"
+  unset TK_LANG
+  . "$VAULT/.tarokaja/lib.sh"
   delegated "$f_fw"
   delegated "$f_hw"
   if delegated "$f_done"; then return 1; fi
 }
 
 test_meetings_dir_profile_and_override() {
-  . "$VAULT/.agent-office/lib.sh"
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  . "$VAULT/.tarokaja/lib.sh"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
   local m_str="2026-11-11 15:00"
   local m_epoch
   m_epoch="$(to_epoch "$m_str")"
   sed -i '' "s/^meeting:$/meeting: $m_str/" "$t1"
 
-  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
-    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  if grep -q '^TK_LANG=' "$VAULT/.tarokaja/config"; then
+    sed -i '' 's/^TK_LANG=.*/TK_LANG=zh-TW/' "$VAULT/.tarokaja/config"
   else
-    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+    echo "TK_LANG=zh-TW" >> "$VAULT/.tarokaja/config"
   fi
 
-  # prep.sh with AO_LANG=zh-TW writes agenda path under Office/會議
+  # prep.sh with TK_LANG=zh-TW writes agenda path under Office/會議
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/prep.sh" T-001
+  /bin/bash "$VAULT/.tarokaja/prep.sh" T-001
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
   grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Office/會議/2026-11-11 1500 T-001.md'
 
   # tick.sh looks for agenda under Office/會議 (skips prep when agenda exists there)
-  rm -f "$VAULT/.agent-office/logs/T-001.prepped-2026-11-11 1500"
+  rm -f "$VAULT/.tarokaja/logs/T-001.prepped-2026-11-11 1500"
   mkdir -p "$VAULT/Office/會議"
   : > "$VAULT/Office/會議/2026-11-11 1500 T-001.md"
   : > "$STUB_AGENT_LOG"
-  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 30 * 60))" TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ ! -s "$STUB_AGENT_LOG" ]
 
   # tick.sh runs prep when agenda under Office/會議 is missing
   rm -f "$VAULT/Office/會議/2026-11-11 1500 T-001.md"
-  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 30 * 60))" TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Office/會議/2026-11-11 1500 T-001.md'
 
-  # Config line MEETINGS_DIR=Agent Office/會議 overrides the profile
-  echo "MEETINGS_DIR=Agent Office/會議" >> "$VAULT/.agent-office/config"
-  rm -f "$VAULT/.agent-office/logs/T-001.prepped-2026-11-11 1500"
+  # Config line MEETINGS_DIR=Tarokaja/會議 overrides the profile
+  echo "MEETINGS_DIR=Tarokaja/會議" >> "$VAULT/.tarokaja/config"
+  rm -f "$VAULT/.tarokaja/logs/T-001.prepped-2026-11-11 1500"
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/prep.sh" T-001
-  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/會議/2026-11-11 1500 T-001.md'
+  /bin/bash "$VAULT/.tarokaja/prep.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tarokaja/會議/2026-11-11 1500 T-001.md'
 
-  # tick.sh respects MEETINGS_DIR=Agent Office/會議 override
-  rm -f "$VAULT/.agent-office/logs/T-001.prepped-2026-11-11 1500"
-  mkdir -p "$VAULT/Agent Office/會議"
-  : > "$VAULT/Agent Office/會議/2026-11-11 1500 T-001.md"
+  # tick.sh respects MEETINGS_DIR=Tarokaja/會議 override
+  rm -f "$VAULT/.tarokaja/logs/T-001.prepped-2026-11-11 1500"
+  mkdir -p "$VAULT/Tarokaja/會議"
+  : > "$VAULT/Tarokaja/會議/2026-11-11 1500 T-001.md"
   : > "$STUB_AGENT_LOG"
-  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_NOW="$((m_epoch - 30 * 60))" TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ ! -s "$STUB_AGENT_LOG" ]
 }
 
 test_rules_file_in_prompts() {
-  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  local t1="$VAULT/Tickets/T-001 Try Tarokaja.md"
   sed -i '' 's/^meeting:$/meeting: 2026-11-11 15:00/' "$t1"
-  echo "RULES_FILE=Agent Office/AGENT.md" >> "$VAULT/.agent-office/config"
+  echo "RULES_FILE=Tarokaja/AGENT.md" >> "$VAULT/.tarokaja/config"
 
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
-  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tarokaja/AGENT.md'
   if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
 
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/prep.sh" T-001
-  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  /bin/bash "$VAULT/.tarokaja/prep.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tarokaja/AGENT.md'
   if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
 
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
-  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  /bin/bash "$VAULT/.tarokaja/meeting.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tarokaja/AGENT.md'
   if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
 
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001 --talk
-  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  /bin/bash "$VAULT/.tarokaja/meeting.sh" T-001 --talk
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tarokaja/AGENT.md'
   if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
 }
 
@@ -609,7 +609,7 @@ test_install_lang_flag() {
 
   local v_zh="$VAULT-zh"
   /bin/bash "$REPO_DIR/install.sh" "$v_zh" --lang zh-TW >/dev/null
-  grep -q '^AO_LANG=zh-TW$' "$v_zh/.agent-office/config"
+  grep -q '^TK_LANG=zh-TW$' "$v_zh/.tarokaja/config"
   [ -f "$v_zh/AGENTS.md" ]
   grep -q '完成條件' "$v_zh/AGENTS.md"
 
@@ -628,9 +628,9 @@ test_install_lang_flag() {
   if [ -e "$v_zh/Office/meetings" ]; then return 1; fi
   if [ -e "$v_zh/Office/outputs" ]; then return 1; fi
 
-  # Reinstall without --lang keeps AO_LANG
+  # Reinstall without --lang keeps TK_LANG
   /bin/bash "$REPO_DIR/install.sh" "$v_zh" >/dev/null
-  grep -q '^AO_LANG=zh-TW$' "$v_zh/.agent-office/config"
+  grep -q '^TK_LANG=zh-TW$' "$v_zh/.tarokaja/config"
 
   # --lang with a bad value exits 2
   local rc=0
@@ -644,53 +644,53 @@ test_install_lang_flag() {
 }
 
 test_install_link_flag() {
-  echo "# pre-link-marker" >> "$VAULT/.agent-office/work.sh"
+  echo "# pre-link-marker" >> "$VAULT/.tarokaja/work.sh"
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" --link >/dev/null
 
   local item target
   for item in lib.sh work.sh prep.sh meeting.sh tick.sh tui.py profiles; do
-    [ -L "$VAULT/.agent-office/$item" ]
-    target="$(readlink "$VAULT/.agent-office/$item")"
+    [ -L "$VAULT/.tarokaja/$item" ]
+    target="$(readlink "$VAULT/.tarokaja/$item")"
     case "$target" in
-      *"template/.agent-office/$item") ;;
+      *"template/.tarokaja/$item") ;;
       *) return 1 ;;
     esac
   done
 
-  # .agent-office/config is a regular file, not a symlink
-  [ -f "$VAULT/.agent-office/config" ]
-  if [ -L "$VAULT/.agent-office/config" ]; then return 1; fi
+  # .tarokaja/config is a regular file, not a symlink
+  [ -f "$VAULT/.tarokaja/config" ]
+  if [ -L "$VAULT/.tarokaja/config" ]; then return 1; fi
 
   # A script that differs from the repo is kept as <name>.bak (spec revised in Code stage:
   # a script that is the same as the repo needs no backup, so a fresh --link install has no .bak noise)
-  [ -f "$VAULT/.agent-office/work.sh.bak" ]
-  if [ -L "$VAULT/.agent-office/work.sh.bak" ]; then return 1; fi
-  grep -q '^# pre-link-marker$' "$VAULT/.agent-office/work.sh.bak"
+  [ -f "$VAULT/.tarokaja/work.sh.bak" ]
+  if [ -L "$VAULT/.tarokaja/work.sh.bak" ]; then return 1; fi
+  grep -q '^# pre-link-marker$' "$VAULT/.tarokaja/work.sh.bak"
   for item in lib.sh prep.sh meeting.sh tick.sh tui.py profiles; do
-    if [ -e "$VAULT/.agent-office/$item.bak" ]; then return 1; fi
+    if [ -e "$VAULT/.tarokaja/$item.bak" ]; then return 1; fi
   done
 
-  # work.sh run through the symlink still finds the vault (logs in VAULT/.agent-office/logs, not repo)
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
-  [ -f "$VAULT/.agent-office/logs/T-001-last-work.txt" ]
-  [ -f "$VAULT/.agent-office/logs/agent.log" ]
-  if [ -e "$REPO_DIR/template/.agent-office/logs" ]; then return 1; fi
+  # work.sh run through the symlink still finds the vault (logs in VAULT/.tarokaja/logs, not repo)
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
+  [ -f "$VAULT/.tarokaja/logs/T-001-last-work.txt" ]
+  [ -f "$VAULT/.tarokaja/logs/agent.log" ]
+  if [ -e "$REPO_DIR/template/.tarokaja/logs" ]; then return 1; fi
 }
 
 test_work_claude_stream_json() {
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
 
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
   grep -q '^ARG: --output-format$' "$STUB_AGENT_LOG"
   grep -q '^ARG: stream-json$' "$STUB_AGENT_LOG"
   grep -q '^ARG: --verbose$' "$STUB_AGENT_LOG"
 
-  local stream="$VAULT/.agent-office/logs/T-001-stream.jsonl"
+  local stream="$VAULT/.tarokaja/logs/T-001-stream.jsonl"
   [ -f "$stream" ]
   grep -q '{"type":"assistant"' "$stream"
   grep -q '{"type":"result","result":"stub result text"}' "$stream"
 
-  local last_work="$VAULT/.agent-office/logs/T-001-last-work.txt"
+  local last_work="$VAULT/.tarokaja/logs/T-001-last-work.txt"
   [ -f "$last_work" ]
   [ "$(cat "$last_work")" = "stub result text" ]
 }
@@ -699,20 +699,20 @@ test_tui_zh_profile() {
   # en behavior and --print
   python3 -I "$TESTS_DIR/test_tui.py" "$VAULT"
   local out_en
-  out_en="$(cd "$VAULT" && python3 -I .agent-office/tui.py --print)"
+  out_en="$(cd "$VAULT" && python3 -I .tarokaja/tui.py --print)"
   printf '%s\n' "$out_en" | grep -q 'T-001'
 
   # zh-TW behavior and --print
-  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
-    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  if grep -q '^TK_LANG=' "$VAULT/.tarokaja/config"; then
+    sed -i '' 's/^TK_LANG=.*/TK_LANG=zh-TW/' "$VAULT/.tarokaja/config"
   else
-    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+    echo "TK_LANG=zh-TW" >> "$VAULT/.tarokaja/config"
   fi
-  rm -f "$VAULT/Tickets/T-001 Try Agent Office.md" "$VAULT/Tickets/T-002 Second task.md"
+  rm -f "$VAULT/Tickets/T-001 Try Tarokaja.md" "$VAULT/Tickets/T-002 Second task.md"
   python3 -I "$TESTS_DIR/test_tui_zh.py" "$VAULT"
 
   local out_zh
-  out_zh="$(cd "$VAULT" && python3 -I .agent-office/tui.py --print)"
+  out_zh="$(cd "$VAULT" && python3 -I .tarokaja/tui.py --print)"
   printf '%s\n' "$out_zh" | grep -q 'T-001'
   printf '%s\n' "$out_zh" | grep -q 'T-002'
 }
@@ -721,41 +721,41 @@ test_tui_screen_both_languages() {
   # Draw the real curses screen in a pseudo-terminal, press keys, and quit, in en and zh-TW.
   local lang
   for lang in en zh-TW; do
-    sed -i '' "s/^AO_LANG=.*/AO_LANG=$lang/" "$VAULT/.agent-office/config"
+    sed -i '' "s/^TK_LANG=.*/TK_LANG=$lang/" "$VAULT/.tarokaja/config"
     python3 -I "$TESTS_DIR/tui_screen.py" "$VAULT" "$lang"
   done
 }
 
 test_lang_on_old_config_and_relink() {
-  # A config from v0.1 has no AO_LANG line: --lang must add it
-  sed -i '' '/^AO_LANG=/d' "$VAULT/.agent-office/config"
+  # A config from v0.1 has no TK_LANG line: --lang must add it
+  sed -i '' '/^TK_LANG=/d' "$VAULT/.tarokaja/config"
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" --lang zh-TW >/dev/null
-  grep -q '^AO_LANG=zh-TW$' "$VAULT/.agent-office/config"
-  ( . "$VAULT/.agent-office/lib.sh"; [ "$AO_LANG" = zh-TW ] && [ "$MEETINGS" = "Office/會議" ] )
+  grep -q '^TK_LANG=zh-TW$' "$VAULT/.tarokaja/config"
+  ( . "$VAULT/.tarokaja/lib.sh"; [ "$TK_LANG" = zh-TW ] && [ "$MEETINGS" = "Office/會議" ] )
   # --link twice: still links, no .bak of a link, and the repo's file modes do not change
   # Work on a copy of the repo, so the test never changes the real repo's files.
   local repo="$test_tmp/repo-copy" mode
   mkdir -p "$repo" && cp -R "$REPO_DIR/install.sh" "$REPO_DIR/template" "$REPO_DIR/locale" "$REPO_DIR/launchd" "$repo/"
-  chmod a-x "$repo/template/.agent-office/prep.sh"
-  mode="$(stat -f '%Lp' "$repo/template/.agent-office/prep.sh")"
+  chmod a-x "$repo/template/.tarokaja/prep.sh"
+  mode="$(stat -f '%Lp' "$repo/template/.tarokaja/prep.sh")"
   /bin/bash "$repo/install.sh" "$VAULT" --link >/dev/null
   /bin/bash "$repo/install.sh" "$VAULT" --link >/dev/null
-  [ "$(stat -f '%Lp' "$repo/template/.agent-office/prep.sh")" = "$mode" ]
-  [ -L "$VAULT/.agent-office/work.sh" ]
-  if [ -e "$VAULT/.agent-office/work.sh.bak" ]; then return 1; fi
+  [ "$(stat -f '%Lp' "$repo/template/.tarokaja/prep.sh")" = "$mode" ]
+  [ -L "$VAULT/.tarokaja/work.sh" ]
+  if [ -e "$VAULT/.tarokaja/work.sh.bak" ]; then return 1; fi
 }
 
 test_stream_error_result() {
   # A result event without text (an error such as error_max_turns) still gives the manager a reason
   printf '#!/bin/bash\necho '"'"'{"type":"result","subtype":"error_max_turns","is_error":true}'"'"'\n' > "$HOME/.local/bin/claude"
   chmod +x "$HOME/.local/bin/claude"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
-  grep -q 'error_max_turns' "$VAULT/.agent-office/logs/T-001-last-work.txt"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
+  grep -q 'error_max_turns' "$VAULT/.tarokaja/logs/T-001-last-work.txt"
   # No result event at all: the stderr tail is kept
   printf '#!/bin/bash\necho "auth failed" >&2\nexit 1\n' > "$HOME/.local/bin/claude"
-  rm -f "$VAULT/.agent-office/logs/T-001.last-work"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001 || true
-  grep -q 'auth failed' "$VAULT/.agent-office/logs/T-001-last-work.txt"
+  rm -f "$VAULT/.tarokaja/logs/T-001.last-work"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001 || true
+  grep -q 'auth failed' "$VAULT/.tarokaja/logs/T-001-last-work.txt"
 }
 
 # ---------------------------------------------------------------------------
@@ -763,37 +763,37 @@ test_stream_error_result() {
 # ---------------------------------------------------------------------------
 
 test_a_addon_mechanism() {
-  grep -q '^ADDONS=$' "$VAULT/.agent-office/config"
-  ( . "$VAULT/.agent-office/lib.sh"; type emit >/dev/null 2>&1 )
+  grep -q '^ADDONS=$' "$VAULT/.tarokaja/config"
+  ( . "$VAULT/.tarokaja/lib.sh"; type emit >/dev/null 2>&1 )
 
-  local fake_log="$VAULT/.agent-office/logs/fake-events.log"
-  mkdir -p "$VAULT/.agent-office/addons/fake"
-  cat > "$VAULT/.agent-office/addons/fake/on_event" <<EOF
+  local fake_log="$VAULT/.tarokaja/logs/fake-events.log"
+  mkdir -p "$VAULT/.tarokaja/addons/fake"
+  cat > "$VAULT/.tarokaja/addons/fake/on_event" <<EOF
 #!/bin/bash
 echo "\$1 \$2 \$3" >> "$fake_log"
 EOF
-  chmod +x "$VAULT/.agent-office/addons/fake/on_event"
+  chmod +x "$VAULT/.tarokaja/addons/fake/on_event"
 
   # With ADDONS empty nothing is called
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
-  AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
+  TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   if [ -s "$fake_log" ]; then return 1; fi
 
   # With ADDONS=fake: work.sh emits session_start T-001 bg then session_end T-001 bg
-  sed -i '' 's/^ADDONS=.*/ADDONS=fake/' "$VAULT/.agent-office/config"
+  sed -i '' 's/^ADDONS=.*/ADDONS=fake/' "$VAULT/.tarokaja/config"
   : > "$fake_log"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
   [ "$(sed -n '1p' "$fake_log")" = "session_start T-001 bg" ]
   [ "$(tail -n 1 "$fake_log")" = "session_end T-001 bg" ]
 
-  # tick.sh (AO_HOUR=22 so no work starts) emits tick - -
+  # tick.sh (TK_HOUR=22 so no work starts) emits tick - -
   : > "$fake_log"
-  AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  TK_HOUR=22 /bin/bash "$VAULT/.tarokaja/tick.sh"
   [ "$(cat "$fake_log")" = "tick - -" ]
 
   # meeting.sh emits meeting_start ID <pid> before the agent and meeting_end ID <pid> after it exits
   : > "$fake_log"
-  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
+  /bin/bash "$VAULT/.tarokaja/meeting.sh" T-001
   local m_start m_end m_pid
   m_start="$(sed -n '1p' "$fake_log")"
   m_end="$(sed -n '2p' "$fake_log")"
@@ -804,22 +804,22 @@ EOF
   [ "$m_end" = "meeting_end T-001 $m_pid" ]
 
   # An on_event that exits 1 (or a missing add-on) does not make work.sh fail
-  sed -i '' 's/^ADDONS=.*/ADDONS=missing,fake/' "$VAULT/.agent-office/config"
-  printf '#!/bin/bash\nexit 1\n' > "$VAULT/.agent-office/addons/fake/on_event"
-  chmod +x "$VAULT/.agent-office/addons/fake/on_event"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  sed -i '' 's/^ADDONS=.*/ADDONS=missing,fake/' "$VAULT/.tarokaja/config"
+  printf '#!/bin/bash\nexit 1\n' > "$VAULT/.tarokaja/addons/fake/on_event"
+  chmod +x "$VAULT/.tarokaja/addons/fake/on_event"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
 }
 
 test_b_install_addons() {
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog,session >/dev/null
-  grep -q '^ADDONS=timelog,session$' "$VAULT/.agent-office/config"
+  grep -q '^ADDONS=timelog,session$' "$VAULT/.tarokaja/config"
 
-  [ -d "$VAULT/.agent-office/addons/timelog" ]
-  [ -x "$VAULT/.agent-office/addons/timelog/on_event" ]
-  [ -f "$VAULT/.agent-office/addons/timelog/timelog.py" ]
-  [ -d "$VAULT/.agent-office/addons/session" ]
-  [ -f "$VAULT/.agent-office/addons/session/hook.py" ]
-  [ -f "$VAULT/.agent-office/addons/session/install.py" ]
+  [ -d "$VAULT/.tarokaja/addons/timelog" ]
+  [ -x "$VAULT/.tarokaja/addons/timelog/on_event" ]
+  [ -f "$VAULT/.tarokaja/addons/timelog/timelog.py" ]
+  [ -d "$VAULT/.tarokaja/addons/session" ]
+  [ -f "$VAULT/.tarokaja/addons/session/hook.py" ]
+  [ -f "$VAULT/.tarokaja/addons/session/install.py" ]
 
   # session install.py adds hook to VAULT/.claude/settings.json (never ~/.claude)
   [ -f "$VAULT/.claude/settings.json" ]
@@ -828,14 +828,14 @@ test_b_install_addons() {
 
   # Reinstall without --addons keeps ADDONS
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" >/dev/null
-  grep -q '^ADDONS=timelog,session$' "$VAULT/.agent-office/config"
+  grep -q '^ADDONS=timelog,session$' "$VAULT/.tarokaja/config"
 
   # With --link, the addons folder is a symlink into the repo
   local v_link="$VAULT-link"
   /bin/bash "$REPO_DIR/install.sh" "$v_link" --link --addons timelog,session >/dev/null
-  [ -L "$v_link/.agent-office/addons" ]
-  case "$(readlink "$v_link/.agent-office/addons")" in
-    *"template/.agent-office/addons") ;;
+  [ -L "$v_link/.tarokaja/addons" ]
+  case "$(readlink "$v_link/.tarokaja/addons")" in
+    *"template/.tarokaja/addons") ;;
     *) return 1 ;;
   esac
 
@@ -853,8 +853,8 @@ test_b_install_addons() {
 
 test_c_timelog() {
   /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog >/dev/null
-  ( unset AO_LANG H_TIME; . "$VAULT/.agent-office/lib.sh"; [ "$(cfg H_TIME fallback)" = "## Time" ] )
-  ( unset H_TIME; AO_LANG=zh-TW; . "$VAULT/.agent-office/lib.sh"; [ "$(cfg H_TIME fallback)" = "## 時間" ] )
+  ( unset TK_LANG H_TIME; . "$VAULT/.tarokaja/lib.sh"; [ "$(cfg H_TIME fallback)" = "## Time" ] )
+  ( unset H_TIME; TK_LANG=zh-TW; . "$VAULT/.tarokaja/lib.sh"; [ "$(cfg H_TIME fallback)" = "## 時間" ] )
 
   python3 -I "$TESTS_DIR/test_c_timelog.py" "$VAULT"
 }
@@ -865,31 +865,31 @@ test_d_session() {
 
   # T-001 has session: sess-0002-bbbb from test_d_session.py, but no transcript file yet -> no --resume
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
+  /bin/bash "$VAULT/.tarokaja/meeting.sh" T-001
   grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
-  grep -q '^AO_TICKET: T-001$' "$STUB_AGENT_LOG"
+  grep -q '^TK_TICKET: T-001$' "$STUB_AGENT_LOG"
   if grep -q '^ARG: --resume$' "$STUB_AGENT_LOG"; then return 1; fi
 
   # When ~/.claude/projects/*/<sid>.jsonl exists -> meeting.sh calls claude with --resume <sid>
   mkdir -p "$HOME/.claude/projects/vault-proj"
   : > "$HOME/.claude/projects/vault-proj/sess-0002-bbbb.jsonl"
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
-  grep -q '^AO_TICKET: T-001$' "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.tarokaja/meeting.sh" T-001
+  grep -q '^TK_TICKET: T-001$' "$STUB_AGENT_LOG"
   grep -q '^ARG: --resume$' "$STUB_AGENT_LOG"
   grep -q '^ARG: sess-0002-bbbb$' "$STUB_AGENT_LOG"
 
   # When ticket has no session -> no --resume even if transcript files exist
-  sed -i '' 's/^session: .*/session:/' "$VAULT/Tickets/T-001 Try Agent Office.md"
+  sed -i '' 's/^session: .*/session:/' "$VAULT/Tickets/T-001 Try Tarokaja.md"
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
-  grep -q '^AO_TICKET: T-001$' "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.tarokaja/meeting.sh" T-001
+  grep -q '^TK_TICKET: T-001$' "$STUB_AGENT_LOG"
   if grep -q '^ARG: --resume$' "$STUB_AGENT_LOG"; then return 1; fi
 
-  # Background sessions export AO_HEADLESS=1
+  # Background sessions export TK_HEADLESS=1
   : > "$STUB_AGENT_LOG"
-  /bin/bash "$VAULT/.agent-office/work.sh" T-001
-  grep -q '^AO_HEADLESS: 1$' "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.tarokaja/work.sh" T-001
+  grep -q '^TK_HEADLESS: 1$' "$STUB_AGENT_LOG"
 }
 
 test_e_tui_week_report() {
@@ -904,42 +904,42 @@ test_install_existing_tickets() {
   printf -- '---\nid: T-001\nstatus: doing\ncreated: 2026-01-01\n---\n# Mine\n' > "$v/Tickets/T-001 Mine.md"
   local before; before="$(cat "$v/Tickets/T-001 Mine.md")"
   /bin/bash "$REPO_DIR/install.sh" "$v" --lang zh-TW >/dev/null
-  [ ! -e "$v/Tickets/T-001 試用 Agent Office.md" ]
+  [ ! -e "$v/Tickets/T-001 試用 Tarokaja.md" ]
   [ "$(cat "$v/Tickets/T-001 Mine.md")" = "$before" ]
-  [ -f "$v/.agent-office/config" ]
+  [ -f "$v/.tarokaja/config" ]
   # A new vault still gets it
   /bin/bash "$REPO_DIR/install.sh" "$VAULT-new" --lang zh-TW >/dev/null
-  [ -f "$VAULT-new/Tickets/T-001 試用 Agent Office.md" ]
+  [ -f "$VAULT-new/Tickets/T-001 試用 Tarokaja.md" ]
 }
 
 test_install_rules_path() {
   # --rules puts the rules file in a folder and leaves the vault root alone
   local v="$VAULT-rules"
-  /bin/bash "$REPO_DIR/install.sh" "$v" --lang zh-TW --rules "Agent Office/AGENTS.md" >/dev/null
-  [ -f "$v/Agent Office/AGENTS.md" ]
-  grep -q '^# Agent Office 守則' "$v/Agent Office/AGENTS.md"
-  grep -q '^RULES_FILE=Agent Office/AGENTS.md$' "$v/.agent-office/config"
+  /bin/bash "$REPO_DIR/install.sh" "$v" --lang zh-TW --rules "Tarokaja/AGENTS.md" >/dev/null
+  [ -f "$v/Tarokaja/AGENTS.md" ]
+  grep -q '^# Tarokaja 守則' "$v/Tarokaja/AGENTS.md"
+  grep -q '^RULES_FILE=Tarokaja/AGENTS.md$' "$v/.tarokaja/config"
   [ ! -e "$v/AGENTS.md" ] && [ ! -e "$v/CLAUDE.md" ] && [ ! -e "$v/GEMINI.md" ]
   # A reinstall without --rules keeps the setting and still leaves the root alone
   /bin/bash "$REPO_DIR/install.sh" "$v" >/dev/null
-  grep -q '^RULES_FILE=Agent Office/AGENTS.md$' "$v/.agent-office/config"
+  grep -q '^RULES_FILE=Tarokaja/AGENTS.md$' "$v/.tarokaja/config"
   [ ! -e "$v/AGENTS.md" ] && [ ! -e "$v/CLAUDE.md" ]
   # A root CLAUDE.md of the user stays
   printf 'mine\n' > "$v/CLAUDE.md"
   /bin/bash "$REPO_DIR/install.sh" "$v" >/dev/null
   [ "$(cat "$v/CLAUDE.md")" = mine ]
   # The work prompt names the rules file
-  /bin/bash "$v/.agent-office/work.sh" "T-001" >/dev/null 2>&1 || true
-  grep -q 'Agent Office/AGENTS.md' "$STUB_AGENT_LOG"
+  /bin/bash "$v/.tarokaja/work.sh" "T-001" >/dev/null 2>&1 || true
+  grep -q 'Tarokaja/AGENTS.md' "$STUB_AGENT_LOG"
   # Bad paths exit 2
   local rc bad
   # --rules AGENTS.md switches back to the vault root
   /bin/bash "$REPO_DIR/install.sh" "$v" --rules AGENTS.md >/dev/null
-  grep -q '^RULES_FILE=AGENTS.md$' "$v/.agent-office/config"
+  grep -q '^RULES_FILE=AGENTS.md$' "$v/.tarokaja/config"
   [ -f "$v/AGENTS.md" ]
   # A dangling symlink of the user at the root stays
   local v2="$VAULT-rules2"; mkdir -p "$v2"; ln -s /nonexistent "$v2/GEMINI.md"
-  /bin/bash "$REPO_DIR/install.sh" "$v2" --rules "Agent Office/AGENTS.md" >/dev/null
+  /bin/bash "$REPO_DIR/install.sh" "$v2" --rules "Tarokaja/AGENTS.md" >/dev/null
   [ -L "$v2/GEMINI.md" ]
   for bad in "../x.md" "/abs/x.md" "x.txt" "a|b.md" "" "a&b.md" 'a\b.md' "a/../b.md" "$(printf 'a\nb.md')"; do
     rc=0; /bin/bash "$REPO_DIR/install.sh" "$VAULT-badrules" --rules "$bad" >/dev/null 2>&1 || rc=$?
@@ -975,7 +975,7 @@ run_test "install.sh --link symlinks, .bak backups, and vault log path" test_ins
 run_test "install.sh skips the example ticket in a vault with tickets" test_install_existing_tickets
 run_test "install.sh --rules puts the rules file in a folder" test_install_rules_path
 run_test "work.sh claude stream-json output and result extraction" test_work_claude_stream_json
-run_test "tui.py with AO_LANG=zh-TW and --print" test_tui_zh_profile
+run_test "tui.py with TK_LANG=zh-TW and --print" test_tui_zh_profile
 run_test "A: add-on mechanism and core events" test_a_addon_mechanism
 run_test "B: install.sh --addons flag, link, and session hook" test_b_install_addons
 run_test "C: timelog add-on events, sync, Daily table, status history, and week" test_c_timelog

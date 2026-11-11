@@ -14,8 +14,8 @@ import termios
 import time
 
 EXPECT = {
-    "en": ["Agent Office", "Places", "Needs me", "T-001", "Subtasks", "talk to the agent"],
-    "zh-TW": ["Agent Office", "位置", "等我", "T-001", "子任務", "跟 agent 談這張卡"],
+    "en": ["Tarokaja", "Places", "Needs me", "T-001", "Subtasks", "talk to the agent"],
+    "zh-TW": ["Tarokaja", "位置", "等我", "T-001", "子任務", "跟 agent 談這張卡"],
 }
 
 
@@ -26,7 +26,7 @@ def main():
         os.chdir(vault)
         os.environ["TERM"] = "xterm-256color"
         os.environ.pop("CMUX_WORKSPACE_ID", None)
-        os.execvp("python3", ["python3", ".agent-office/tui.py"])
+        os.execvp("python3", ["python3", ".tarokaja/tui.py"])
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 30, 120, 0, 0))
     out = b""
 

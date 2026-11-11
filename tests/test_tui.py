@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for .agent-office/tui.py loaded via importlib from the vault."""
+"""Unit tests for .tarokaja/tui.py loaded via importlib from the vault."""
 import datetime as dt
 import importlib.util
 import os
@@ -7,7 +7,7 @@ import sys
 
 
 def load_tui(vault):
-    tui_path = os.path.join(vault, ".agent-office", "tui.py")
+    tui_path = os.path.join(vault, ".tarokaja", "tui.py")
     spec = importlib.util.spec_from_file_location("tui", tui_path)
     assert spec is not None and spec.loader is not None, "Failed to load spec for tui.py"
     mod = importlib.util.module_from_spec(spec)
@@ -19,12 +19,12 @@ def main():
     vault = sys.argv[1]
     tui = load_tui(vault)
 
-    t1_path = os.path.join(vault, "Tickets", "T-001 Try Agent Office.md")
+    t1_path = os.path.join(vault, "Tickets", "T-001 Try Tarokaja.md")
     t1 = tui.parse_ticket(t1_path)
     assert t1["id"] == "T-001", f"Expected T-001, got {t1['id']}"
     assert t1["status"] == "doing", f"Expected doing, got {t1['status']}"
     assert len(t1["subtasks"]) == 4, f"Expected 4 subtasks, got {len(t1['subtasks'])}"
-    assert t1["subtasks"][0] == (True, "Install Agent Office")
+    assert t1["subtasks"][0] == (True, "Install Tarokaja")
     assert t1["subtasks"][1][0] is False
     assert t1["subtasks"][1][1].endswith("(agent)")
     assert len(t1["crumbs"]) == 1, f"Expected 1 crumb, got {t1['crumbs']}"
@@ -41,7 +41,7 @@ def main():
     assert "Opened." in t1_after["crumbs"][1]
 
     # new_ticket makes T-002 with status inbox
-    tid = tui.new_ticket("Second task", "Agent Office")
+    tid = tui.new_ticket("Second task", "Tarokaja")
     assert tid == "T-002", f"Expected T-002, got {tid}"
     t2_path = os.path.join(vault, "Tickets", "T-002 Second task.md")
     assert os.path.isfile(t2_path), "T-002 file not created"

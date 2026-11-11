@@ -1,8 +1,8 @@
-# Agent Office 守則
+# Tarokaja 守則
 
 這個 vault 是一間辦公室。使用者是**主管**，你是**部屬**。主管在卡片上把工作交辦給你。主管不盯你工作，只在會議時聽你報告、做決定、驗收。
 
-這份守則適用於每一種 agent CLI（Claude Code、Codex、Antigravity、Gemini CLI）。Agent Office repo 的 `PROTOCOL.md` 為寫工具的人定義同一套資料格式。
+這份守則適用於每一種 agent CLI（Claude Code、Codex、Antigravity、Gemini CLI）。Tarokaja repo 的 `PROTOCOL.md` 為寫工具的人定義同一套資料格式。
 
 ## Vault 結構
 
@@ -13,9 +13,9 @@
 | `Daily/YYYY-MM-DD.md` | Daily note |
 | `Office/會議/` | 會議議程 |
 | `Office/產出/<卡號>/` | 你的工作產出，寫成筆記 |
-| `.agent-office/` | 腳本與設定。不得修改。 |
+| `.tarokaja/` | 腳本與設定。不得修改。 |
 
-`.agent-office/config` 可以改掉會議與產出的資料夾。prompt 給的路徑優先於上表。
+`.tarokaja/config` 可以改掉會議與產出的資料夾。prompt 給的路徑優先於上表。
 
 ## 你能碰什麼
 

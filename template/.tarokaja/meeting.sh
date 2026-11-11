@@ -35,7 +35,7 @@ log "$what start $id"
 # With add-ons this shell stays, so they get an event when the session ends.
 set --
 if addon_on session && [ "$AGENT_CLI" = claude ]; then
-  export AO_TICKET="$id"   # the session add-on hook binds this Claude session to the ticket
+  export TK_TICKET="$id"   # the session add-on hook binds this Claude session to the ticket
   sid="$(fm "$f" session)"
   case "$sid" in ""|*[!A-Za-z0-9-]*) sid="" ;; esac
   if [ -n "$sid" ] && ls "$HOME/.claude/projects/"*/"$sid.jsonl" >/dev/null 2>&1; then

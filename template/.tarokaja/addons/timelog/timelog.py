@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Agent Office add-on "timelog": time per ticket for the manager ("me") and the agent.
+"""Tarokaja add-on "timelog": time per ticket for the manager ("me") and the agent.
 
     timelog.py add ID KIND REF [--at EPOCH]   append one event
     timelog.py sync [--now EPOCH]             write time_me / time_agent and the Daily note tables
     timelog.py week [--now EPOCH]             print this week's time per ticket
     timelog.py status                         record status changes (logs/status/ID.jsonl)
 
-Events: .agent-office/logs/time/ID.jsonl, one JSON object per line {"at": int, "kind": str, "ref": str}.
+Events: .tarokaja/logs/time/ID.jsonl, one JSON object per line {"at": int, "kind": str, "ref": str}.
 Kinds: seat_start / seat_end (the manager is in a meeting or talk, ref = its pid),
 agent_start / agent_tick / agent_end (the agent works, ref = "bg" or a session id), ping (activity).
 Python 3.8+, standard library only.
@@ -18,9 +18,9 @@ import re
 import sys
 import time
 
-AO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # keep symlinks: no realpath
-VAULT = os.path.dirname(AO_DIR)
-LOGS = os.path.join(AO_DIR, "logs")
+TK_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # keep symlinks: no realpath
+VAULT = os.path.dirname(TK_DIR)
+LOGS = os.path.join(TK_DIR, "logs")
 TIME_DIR = os.path.join(LOGS, "time")
 STATUS_DIR = os.path.join(LOGS, "status")
 TICKETS = os.path.join(VAULT, "Tickets")
@@ -54,11 +54,11 @@ def _conf(path):
 
 def setting(key, default):
     """Environment, then config, then the language profile, then default (same order as lib.sh)."""
-    config = _conf(os.path.join(AO_DIR, "config"))
-    lang = os.environ.get("AO_LANG") or config.get("AO_LANG") or "en"
-    if key == "AO_LANG":
+    config = _conf(os.path.join(TK_DIR, "config"))
+    lang = os.environ.get("TK_LANG") or config.get("TK_LANG") or "en"
+    if key == "TK_LANG":
         return lang if lang in LABELS else "en"
-    profile = _conf(os.path.join(AO_DIR, "profiles", lang + ".conf"))
+    profile = _conf(os.path.join(TK_DIR, "profiles", lang + ".conf"))
     return os.environ.get(key) or config.get(key) or profile.get(key) or default
 
 
@@ -296,7 +296,7 @@ def sync(now=None):
                                      "time_agent": minutes(sum(t["agent"].values()))})
         if new != text:
             write(path, new)
-    lang = setting("AO_LANG", "en")
+    lang = setting("TK_LANG", "en")
     lab = LABELS[lang]
     heading = setting("H_TIME", lab["heading"])   # a vault copied before H_TIME existed has no profile key
     today = dt.datetime.fromtimestamp(now).date()
@@ -323,7 +323,7 @@ def sync(now=None):
 
 def week(now=None):
     now = int(time.time()) if now is None else now
-    lab = LABELS[setting("AO_LANG", "en")]
+    lab = LABELS[setting("TK_LANG", "en")]
     today = dt.datetime.fromtimestamp(now).date()
     monday = today - dt.timedelta(days=today.weekday())
     days = {(monday + dt.timedelta(days=i)).isoformat() for i in range((today - monday).days + 1)}

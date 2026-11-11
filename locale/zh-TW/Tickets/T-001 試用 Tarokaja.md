@@ -1,7 +1,7 @@
 ---
 id: T-001
 status: doing
-project: Agent Office
+project: Tarokaja
 created: 2026-01-01
 updated: 2026-01-01
 due:
@@ -11,7 +11,7 @@ meeting:
 agent_state:
 links: []
 ---
-# 試用 Agent Office
+# 試用 Tarokaja
 
 ## 完成條件
 
@@ -19,10 +19,10 @@ links: []
 
 ## 子任務
 
-- [x] 安裝 Agent Office
+- [x] 安裝 Tarokaja
 - [ ] 寫一段筆記，向新使用者說明 vault 的結構（agent）
-- [ ] 執行 `.agent-office/work.sh T-001`，讀 agent 寫的 Breadcrumb
-- [ ] 用 `.agent-office/meeting.sh T-001` 開一次會
+- [ ] 執行 `.tarokaja/work.sh T-001`，讀 agent 寫的 Breadcrumb
+- [ ] 用 `.tarokaja/meeting.sh T-001` 開一次會
 
 ## Decisions
 

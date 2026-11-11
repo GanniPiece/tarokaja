@@ -44,7 +44,7 @@ def hook_cmd_count(settings_data, event_name):
 
 def run_hook(hook_py, vault, payload, env_extra):
     env = os.environ.copy()
-    for k in ("AO_TICKET", "AO_HEADLESS", "CMUX_SURFACE_ID", "CMUX_WORKSPACE_ID"):
+    for k in ("TK_TICKET", "TK_HEADLESS", "CMUX_SURFACE_ID", "CMUX_WORKSPACE_ID"):
         env.pop(k, None)
     env.update(env_extra)
     stdin_text = payload if isinstance(payload, str) else json.dumps(payload)
@@ -63,7 +63,7 @@ def run_hook(hook_py, vault, payload, env_extra):
 
 def main():
     vault = sys.argv[1]
-    ao_dir = os.path.join(vault, ".agent-office")
+    ao_dir = os.path.join(vault, ".tarokaja")
     hook_py = os.path.join(ao_dir, "addons", "session", "hook.py")
     install_py = os.path.join(ao_dir, "addons", "session", "install.py")
 
@@ -125,33 +125,33 @@ def main():
 
     # 2. Test hook.py behavior
     sessions_dir = os.path.join(ao_dir, "logs", "sessions")
-    t1_path = os.path.join(vault, "Tickets", "T-001 Try Agent Office.md")
+    t1_path = os.path.join(vault, "Tickets", "T-001 Try Tarokaja.md")
 
     # Bad input -> exits 0, no output
-    run_hook(hook_py, vault, "not-valid-json{{{", {"AO_TICKET": "T-001"})
-    run_hook(hook_py, vault, "", {"AO_TICKET": "T-001"})
+    run_hook(hook_py, vault, "not-valid-json{{{", {"TK_TICKET": "T-001"})
+    run_hook(hook_py, vault, "", {"TK_TICKET": "T-001"})
 
-    # No AO_TICKET -> does nothing
+    # No TK_TICKET -> does nothing
     run_hook(hook_py, vault, {
         "session_id": "sess-no-ticket",
         "hook_event_name": "SessionStart",
         "cwd": vault,
         "transcript_path": "/tmp/sess-no-ticket.jsonl",
     }, {})
-    assert not os.path.exists(os.path.join(sessions_dir, "sess-no-ticket.json")), "hook.py acted without AO_TICKET"
+    assert not os.path.exists(os.path.join(sessions_dir, "sess-no-ticket.json")), "hook.py acted without TK_TICKET"
 
-    # AO_HEADLESS set -> does nothing
+    # TK_HEADLESS set -> does nothing
     run_hook(hook_py, vault, {
         "session_id": "sess-headless",
         "hook_event_name": "UserPromptSubmit",
         "cwd": vault,
         "transcript_path": "/tmp/sess-headless.jsonl",
-    }, {"AO_TICKET": "T-001", "AO_HEADLESS": "1"})
-    assert not os.path.exists(os.path.join(sessions_dir, "sess-headless.json")), "hook.py acted when AO_HEADLESS=1"
+    }, {"TK_TICKET": "T-001", "TK_HEADLESS": "1"})
+    assert not os.path.exists(os.path.join(sessions_dir, "sess-headless.json")), "hook.py acted when TK_HEADLESS=1"
 
-    # Active session 1 with AO_TICKET=T-001 and timelog enabled
+    # Active session 1 with TK_TICKET=T-001 and timelog enabled
     env_s1 = {
-        "AO_TICKET": "T-001",
+        "TK_TICKET": "T-001",
         "CMUX_SURFACE_ID": "surface:1",
         "CMUX_WORKSPACE_ID": "workspace:2",
     }

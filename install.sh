@@ -1,18 +1,18 @@
 #!/bin/bash
 # install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--rules PATH] [--link] [--schedule]
 #
-# Copies the Agent Office template into VAULT_DIR. VAULT_DIR can be a new folder or an
+# Copies the Tarokaja template into VAULT_DIR. VAULT_DIR can be a new folder or an
 # existing Obsidian vault. Files that exist already are never overwritten.
 #   --agent     the agent CLI for all sessions (Default: claude)
 #   --lang      the language profile: ticket headings, markers, folders, rules (Default: en)
 #   --addons    the add-ons to turn on, separated by "," (timelog, session). Writes ADDONS in config.
 #               session adds Claude Code hooks to VAULT_DIR/.claude/settings.json.
-#   --rules     where the agent rules go, relative to VAULT_DIR, such as "Agent Office/AGENTS.md".
+#   --rules     where the agent rules go, relative to VAULT_DIR, such as "Tarokaja/AGENTS.md".
 #               Writes RULES_FILE in config. The vault root then gets no AGENTS.md, CLAUDE.md, or GEMINI.md,
 #               so your own agent sessions in the vault do not load the office rules. (Default: AGENTS.md)
 #   --link      link the scripts to this repo instead of copying them, so the vault runs
 #               the repo's code (for development). config and logs stay in the vault.
-#   --schedule  install the launchd job that runs .agent-office/tick.sh every 5 minutes
+#   --schedule  install the launchd job that runs .tarokaja/tick.sh every 5 minutes
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
@@ -37,7 +37,7 @@ done
 [ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--rules PATH] [--link] [--schedule]" >&2; exit 2; }
 if [ "$set_rules" = 1 ]; then
   case "$rules" in
-    ""|/*|../*|*/../*|*/..|*"|"*|*"&"*|*\\*|*[[:cntrl:]]*) echo "--rules needs a path inside the vault, such as \"Agent Office/AGENTS.md\"" >&2; exit 2 ;;
+    ""|/*|../*|*/../*|*/..|*"|"*|*"&"*|*\\*|*[[:cntrl:]]*) echo "--rules needs a path inside the vault, such as \"Tarokaja/AGENTS.md\"" >&2; exit 2 ;;
     *.md) ;;
     *) echo "--rules needs a .md file" >&2; exit 2 ;;
   esac
@@ -45,7 +45,7 @@ fi
 if [ "$set_addons" = 1 ]; then
   case "$addons" in *[!A-Za-z0-9_,-]*) echo "--addons takes names separated by \",\", such as timelog,session" >&2; exit 2 ;; esac
   for a in $(echo "$addons" | tr ',' ' '); do
-    [ -d "$HERE/template/.agent-office/addons/$a" ] || { echo "Unknown add-on: $a (use timelog, session)" >&2; exit 2; }
+    [ -d "$HERE/template/.tarokaja/addons/$a" ] || { echo "Unknown add-on: $a (use timelog, session)" >&2; exit 2; }
   done
 fi
 case "${lang:-en}" in en|zh-TW) ;; *) echo "--lang must be en or zh-TW" >&2; exit 2 ;; esac
@@ -63,16 +63,16 @@ if command -v python3 >/dev/null 2>&1; then ok "python3 (for the TUI)"; else war
 mkdir -p "$vault" || exit 1
 vault="$(cd "$vault" && pwd)"
 fresh=0
-[ -f "$vault/.agent-office/config" ] || fresh=1
+[ -f "$vault/.tarokaja/config" ] || fresh=1
 echo "Installing into $vault"
 # The language of a reinstall: --lang, else the one in config, else en.
 if [ -z "$lang" ] && [ "$fresh" = 0 ]; then
-  lang="$(sed -n 's/^AO_LANG=//p' "$vault/.agent-office/config" | tail -n 1)"
+  lang="$(sed -n 's/^TK_LANG=//p' "$vault/.tarokaja/config" | tail -n 1)"
 fi
 case "${lang:-en}" in en|zh-TW) lang="${lang:-en}" ;; *) lang=en ;; esac
 # The rules file: --rules, else RULES_FILE in config, else AGENTS.md at the vault root.
 if [ "$set_rules" = 0 ] && [ "$fresh" = 0 ]; then
-  rules="$(sed -n 's/^RULES_FILE=//p' "$vault/.agent-office/config" | tail -n 1)"
+  rules="$(sed -n 's/^RULES_FILE=//p' "$vault/.tarokaja/config" | tail -n 1)"
 fi
 rules="${rules:-AGENTS.md}"
 root_new=""   # root rules files that this install creates, removed again when the rules live elsewhere
@@ -93,10 +93,10 @@ if [ "$rules" != AGENTS.md ] || [ "$set_rules" = 1 ]; then
     [ -e "$vault/$rules" ] || cp "$HERE/locale/$lang/AGENTS.md" "$vault/$rules"
     for name in $root_new; do rm -f "$vault/$name"; done
   fi
-  if grep -q '^RULES_FILE=' "$vault/.agent-office/config"; then
-    sed -i '' "s|^RULES_FILE=.*|RULES_FILE=$rules|" "$vault/.agent-office/config"
+  if grep -q '^RULES_FILE=' "$vault/.tarokaja/config"; then
+    sed -i '' "s|^RULES_FILE=.*|RULES_FILE=$rules|" "$vault/.tarokaja/config"
   else
-    printf '\n# Agent rules file, relative to the vault\nRULES_FILE=%s\n' "$rules" >> "$vault/.agent-office/config"
+    printf '\n# Agent rules file, relative to the vault\nRULES_FILE=%s\n' "$rules" >> "$vault/.tarokaja/config"
   fi
   ok "rules file: $rules"
 fi
@@ -104,47 +104,47 @@ if [ "$skip_example" = 1 ]; then
   rm -f "$vault/Tickets/$example"
   ok "example ticket skipped: Tickets/ has tickets already"
 fi
-if grep -q '^AO_LANG=' "$vault/.agent-office/config"; then
-  sed -i '' "s/^AO_LANG=.*/AO_LANG=$lang/" "$vault/.agent-office/config"
+if grep -q '^TK_LANG=' "$vault/.tarokaja/config"; then
+  sed -i '' "s/^TK_LANG=.*/TK_LANG=$lang/" "$vault/.tarokaja/config"
 else
-  printf '\n# Language profile: en or zh-TW\nAO_LANG=%s\n' "$lang" >> "$vault/.agent-office/config"   # config from an older version
+  printf '\n# Language profile: en or zh-TW\nTK_LANG=%s\n' "$lang" >> "$vault/.tarokaja/config"   # config from an older version
 fi
 ok "language profile: $lang"
 
 if [ "$set_addons" = 1 ]; then
-  if grep -q '^ADDONS=' "$vault/.agent-office/config"; then
-    sed -i '' "s/^ADDONS=.*/ADDONS=$addons/" "$vault/.agent-office/config"
+  if grep -q '^ADDONS=' "$vault/.tarokaja/config"; then
+    sed -i '' "s/^ADDONS=.*/ADDONS=$addons/" "$vault/.tarokaja/config"
   else
-    printf '\n# Add-ons, separated by ","\nADDONS=%s\n' "$addons" >> "$vault/.agent-office/config"
+    printf '\n# Add-ons, separated by ","\nADDONS=%s\n' "$addons" >> "$vault/.tarokaja/config"
   fi
 fi
-ok "add-ons: $(sed -n 's/^ADDONS=//p' "$vault/.agent-office/config" | tail -n 1)"
+ok "add-ons: $(sed -n 's/^ADDONS=//p' "$vault/.tarokaja/config" | tail -n 1)"
 
 if [ "$link" = 1 ]; then
   # Replace the scripts and profiles with links to this repo. config and logs stay in the vault.
   for name in lib.sh work.sh prep.sh meeting.sh tick.sh tui.py profiles addons; do
-    dst="$vault/.agent-office/$name"
-    src="$HERE/template/.agent-office/$name"
+    dst="$vault/.tarokaja/$name"
+    src="$HERE/template/.tarokaja/$name"
     if [ -L "$dst" ]; then rm -f "$dst"
     elif [ -e "$dst" ] && diff -rq "$dst" "$src" >/dev/null 2>&1; then rm -rf "$dst"   # same as the repo: no backup needed
     elif [ -e "$dst" ]; then rm -rf "$dst.bak"; mv "$dst" "$dst.bak"; fi
     ln -s "$src" "$dst"
   done
-  ok "scripts linked to $HERE/template/.agent-office"
+  ok "scripts linked to $HERE/template/.tarokaja"
 fi
 # chmod follows symlinks, so only change the modes of copied scripts, never the repo's files.
-for f in "$vault/.agent-office/"*.sh "$vault/.agent-office/tui.py" "$vault/.agent-office/addons/"*/on_event; do
-  case "$f" in "$vault/.agent-office/addons/"*) [ -L "$vault/.agent-office/addons" ] && continue ;; esac
+for f in "$vault/.tarokaja/"*.sh "$vault/.tarokaja/tui.py" "$vault/.tarokaja/addons/"*/on_event; do
+  case "$f" in "$vault/.tarokaja/addons/"*) [ -L "$vault/.tarokaja/addons" ] && continue ;; esac
   [ -L "$f" ] || chmod +x "$f" 2>/dev/null
 done
 if [ "$set_addons" = 1 ]; then
   # The session add-on hooks live in the vault's project settings, never in ~/.claude.
   case ",$addons," in
     *,session,*)
-      if python3 -I "$vault/.agent-office/addons/session/install.py" "$vault"; then ok "session hooks in $vault/.claude/settings.json"
+      if python3 -I "$vault/.tarokaja/addons/session/install.py" "$vault"; then ok "session hooks in $vault/.claude/settings.json"
       else warn "could not add the session hooks to $vault/.claude/settings.json"; fi ;;
     *)
-      if [ -f "$vault/.claude/settings.json" ] && ! python3 -I "$vault/.agent-office/addons/session/install.py" "$vault" --remove; then
+      if [ -f "$vault/.claude/settings.json" ] && ! python3 -I "$vault/.tarokaja/addons/session/install.py" "$vault" --remove; then
         warn "could not remove the session hooks from $vault/.claude/settings.json"
       fi ;;
   esac
@@ -158,21 +158,22 @@ if [ -f "$t1" ] && grep -q '^created: 2026-01-01$' "$t1"; then
 fi
 # Set the agent on a fresh install, or when --agent is given. A reinstall keeps the user's config.
 if [ "$fresh" = 1 ] || [ -n "$agent" ]; then
-  sed -i '' "s/^AGENT_CLI=.*/AGENT_CLI=${agent:-claude}/" "$vault/.agent-office/config"
+  sed -i '' "s/^AGENT_CLI=.*/AGENT_CLI=${agent:-claude}/" "$vault/.tarokaja/config"
 fi
-ok "agent CLI: $(sed -n 's/^AGENT_CLI=//p' "$vault/.agent-office/config" | tail -n 1) (change it in .agent-office/config)"
+ok "agent CLI: $(sed -n 's/^AGENT_CLI=//p' "$vault/.tarokaja/config" | tail -n 1) (change it in .tarokaja/config)"
 
 if [ "$schedule" = 1 ]; then
   # One job per vault: the label ends with a checksum of the vault path.
-  label="local.agent-office.tick.$(printf '%s' "$vault" | cksum | cut -d' ' -f1)"
+  label="local.tarokaja.tick.$(printf '%s' "$vault" | cksum | cut -d' ' -f1)"
   plist="$HOME/Library/LaunchAgents/$label.plist"
-  mkdir -p "$HOME/Library/LaunchAgents" "$vault/.agent-office/logs"
+  mkdir -p "$HOME/Library/LaunchAgents" "$vault/.tarokaja/logs"
   # Escape the path for XML first, then for the sed replacement (\\, & and the | delimiter).
   xml="$(printf '%s' "$vault" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
   esc="$(printf '%s' "$xml" | sed -e 's/[\\&|]/\\&/g')"
   sed -e "s|__VAULT__|$esc|g" -e "s|__LABEL__|$label|g" "$HERE/launchd/tick.plist" > "$plist"
   plutil -lint "$plist" >/dev/null || { warn "invalid plist: $plist"; exit 1; }
   launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+  launchctl bootout "gui/$(id -u)/local.agent-office.tick.${label##*.}" 2>/dev/null || true   # label before the rename to Tarokaja
   launchctl bootout "gui/$(id -u)/local.agent-office.tick" 2>/dev/null || true   # label of versions before 0.1
   if launchctl bootstrap "gui/$(id -u)" "$plist"; then
     ok "schedule: tick.sh every 5 minutes ($plist)"
@@ -186,7 +187,7 @@ cat <<EOF
 Next:
   1. Open $vault as a vault in Obsidian.
   2. In cmux, open the folder:   cmux "$vault"
-  3. Start the TUI:              python3 .agent-office/tui.py
+  3. Start the TUI:              python3 .tarokaja/tui.py
 EOF
 if [ "$skip_example" = 1 ]; then
   echo "  4. Open a ticket and delegate a subtask: end it with $( [ "$lang" = zh-TW ] && echo '（agent）' || echo '(agent)' )."

@@ -15,12 +15,12 @@ WORK_HOURS_TO="$(cfg WORK_HOURS_TO 20)"      # local hour, exclusive
 PREP_BEFORE_MIN="$(cfg PREP_BEFORE_MIN 60)"
 REMIND_BEFORE_MIN="$(cfg REMIND_BEFORE_MIN 5)"
 
-now="${AO_NOW:-$(date +%s)}"                 # AO_NOW and AO_HOUR: tests set the clock
-hour="${AO_HOUR:-$(date +%H)}"; hour="${hour#0}"
+now="${TK_NOW:-$(date +%s)}"                 # TK_NOW and TK_HOUR: tests set the clock
+hour="${TK_HOUR:-$(date +%H)}"; hour="${hour#0}"
 
 start() { # start SCRIPT ID: run in the background, detached from this tick
-  if [ "${AO_FOREGROUND:-}" = 1 ]; then /bin/bash "$AO_DIR/$1" "$2"; return; fi   # tests
-  nohup /bin/bash "$AO_DIR/$1" "$2" >> "$LOG_DIR/tick-sessions.log" 2>&1 < /dev/null &
+  if [ "${TK_FOREGROUND:-}" = 1 ]; then /bin/bash "$TK_DIR/$1" "$2"; return; fi   # tests
+  nohup /bin/bash "$TK_DIR/$1" "$2" >> "$LOG_DIR/tick-sessions.log" 2>&1 < /dev/null &
 }
 
 for f in "$TICKETS/"T-*.md; do

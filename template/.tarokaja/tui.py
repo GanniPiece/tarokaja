@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Agent Office TUI: the manager's view of the office, in the terminal.
+"""Tarokaja TUI: the manager's view of the office, in the terminal.
 
-    python3 .agent-office/tui.py               interactive view
-    python3 .agent-office/tui.py --print       print the board once and exit (no curses)
+    python3 .tarokaja/tui.py               interactive view
+    python3 .tarokaja/tui.py --print       print the board once and exit (no curses)
 
 Three columns: places (left), tickets (middle), the selected ticket (right).
 It reads Tickets/*.md directly. It writes only small frontmatter changes and
@@ -20,10 +20,10 @@ import time
 import unicodedata
 import urllib.parse
 
-AO_DIR = os.path.dirname(os.path.abspath(__file__))
-VAULT = os.path.dirname(AO_DIR)
+TK_DIR = os.path.dirname(os.path.abspath(__file__))
+VAULT = os.path.dirname(TK_DIR)
 TICKETS = os.path.join(VAULT, "Tickets")
-LOGS = os.path.join(AO_DIR, "logs")
+LOGS = os.path.join(TK_DIR, "logs")
 
 def _conf(path):
     out = {}
@@ -40,21 +40,21 @@ def _conf(path):
 
 def load_settings():
     """Settings in the same order as lib.sh: environment, config, profile, default."""
-    config = _conf(os.path.join(AO_DIR, "config"))
-    lang = os.environ.get("AO_LANG") or config.get("AO_LANG") or "en"
+    config = _conf(os.path.join(TK_DIR, "config"))
+    lang = os.environ.get("TK_LANG") or config.get("TK_LANG") or "en"
     if lang not in ("en", "zh-TW"):
         lang = "en"
-    profile = _conf(os.path.join(AO_DIR, "profiles", lang + ".conf"))
+    profile = _conf(os.path.join(TK_DIR, "profiles", lang + ".conf"))
     defaults = {"H_DONE": "## Done when", "H_SUBTASKS": "## Subtasks", "H_DECISIONS": "## Decisions",
                 "H_CRUMBS": "## Breadcrumbs", "MARK": "(agent)", "CRUMB_OPENED": "Opened."}
-    out = {"AO_LANG": lang}
+    out = {"TK_LANG": lang}
     for k, v in defaults.items():
         out[k] = os.environ.get(k) or config.get(k) or profile.get(k) or v
     return out
 
 
 S = load_settings()
-LANG = S["AO_LANG"]
+LANG = S["TK_LANG"]
 
 ZH = {
     "Places": "位置", "Needs me": "等我", "All open": "進行中", "Closed": "已關閉", "Other": "其他",
@@ -67,9 +67,9 @@ ZH = {
     "s           set the status              n  new ticket": "s           改 status                   n  開新卡",
     "o           open the ticket in Obsidian r  reload       q  quit": "o           在 Obsidian 開啟卡片        r  重新讀取    q  離開",
     "R           this week's time (timelog add-on)": "R           本週時間（timelog add-on）",
-    "Time log is off. Add timelog to ADDONS in .agent-office/config.": "時間紀錄沒開。在 .agent-office/config 的 ADDONS 加上 timelog。",
+    "Time log is off. Add timelog to ADDONS in .tarokaja/config.": "時間紀錄沒開。在 .tarokaja/config 的 ADDONS 加上 timelog。",
     "Make the window bigger (60x10 at least).": "請把視窗放大（至少 60x10）。",
-    " Agent Office   %s needs you   %s running": " Agent Office   %s 張等你   %s 張執行中",
+    " Tarokaja   %s needs you   %s running": " Tarokaja   %s 張等你   %s 張執行中",
     "⚙ background %s session running": "⚙ 背景 %s session 執行中",
     "Agent waits for you: %s": "Agent 在等你：%s", "Waiting on: ": "等待：", "Next meeting: ": "下次會議：",
     "Subtasks %d/%d": "子任務 %d/%d", "Breadcrumbs": "Breadcrumb", "Last work session": "上次工作階段",
@@ -116,13 +116,13 @@ HELP = [_(x) for x in [
 
 def addon_on(name):
     """True when the add-on is in ADDONS (read now: the config can change while the TUI runs)."""
-    val = os.environ.get("ADDONS") or _conf(os.path.join(AO_DIR, "config")).get("ADDONS", "")
+    val = os.environ.get("ADDONS") or _conf(os.path.join(TK_DIR, "config")).get("ADDONS", "")
     return name in [a.strip() for a in val.split(",")]
 
 
 def week_report_lines():
     """This week's time per ticket from the timelog add-on, [] when it is off or fails."""
-    script = os.path.join(AO_DIR, "addons", "timelog", "timelog.py")
+    script = os.path.join(TK_DIR, "addons", "timelog", "timelog.py")
     if not addon_on("timelog") or not os.path.isfile(script):
         return []
     try:
@@ -426,7 +426,7 @@ def open_split(cmd):
 def start_bg(script, tid):
     os.makedirs(LOGS, exist_ok=True)
     with open(os.path.join(LOGS, "tui-bg.log"), "a") as err:
-        subprocess.Popen(["/bin/bash", os.path.join(AO_DIR, script), tid], cwd=VAULT,
+        subprocess.Popen(["/bin/bash", os.path.join(TK_DIR, script), tid], cwd=VAULT,
                          stdout=err, stderr=err, stdin=subprocess.DEVNULL, start_new_session=True)
 
 
@@ -508,7 +508,7 @@ class App:
         cur = self.current()
         need = sum(1 for t in self.tickets if t["fm"].get("agent_state"))
         run = sum(1 for t in self.tickets if running_kind(t["id"]))
-        head = _(" Agent Office   %s needs you   %s running") % (need, run)
+        head = _(" Tarokaja   %s needs you   %s running") % (need, run)
         scr.addstr(0, 0, fit(head, w - 1 - 6) + time.strftime("%H:%M"), curses.A_REVERSE)
         lw, mw = 18, max(30, (w - 18) // 2 - 4)
         rw = w - lw - mw - 3
@@ -608,7 +608,7 @@ class App:
             self.help = False
             self.report = [] if self.report else week_report_lines()
             if not self.report and not addon_on("timelog"):
-                self.msg = _("Time log is off. Add timelog to ADDONS in .agent-office/config.")
+                self.msg = _("Time log is off. Add timelog to ADDONS in .tarokaja/config.")
         elif key in ("j", curses.KEY_DOWN):
             self.move(1)
         elif key in ("k", curses.KEY_UP):
@@ -636,9 +636,9 @@ class App:
         elif cur is None:
             pass
         elif key in ("\n", "\r", "t", curses.KEY_ENTER):
-            self.interactive(scr, [os.path.join(AO_DIR, "meeting.sh"), cur["id"], "--talk"], _("Talk with %s") % cur["id"])
+            self.interactive(scr, [os.path.join(TK_DIR, "meeting.sh"), cur["id"], "--talk"], _("Talk with %s") % cur["id"])
         elif key == "m":
-            self.interactive(scr, [os.path.join(AO_DIR, "meeting.sh"), cur["id"]], _("Meeting for %s") % cur["id"])
+            self.interactive(scr, [os.path.join(TK_DIR, "meeting.sh"), cur["id"]], _("Meeting for %s") % cur["id"])
         elif key == "w":
             if not cur["delegated"]:
                 self.msg = _("%s has no subtask marked (agent). Talk to the agent to delegate one.") % cur["id"]
@@ -726,7 +726,7 @@ def print_board():
 
 def main(argv):
     if not os.path.isdir(TICKETS):
-        sys.stderr.write("Cannot find %s. Run the TUI from an Agent Office vault.\n" % TICKETS)
+        sys.stderr.write("Cannot find %s. Run the TUI from an Tarokaja vault.\n" % TICKETS)
         return 1
     if "--print" in argv:
         print_board()
