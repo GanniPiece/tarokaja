@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent Office add-on "session": add or remove its Claude Code hooks.
+"""Tarokaja add-on "session": add or remove its Claude Code hooks.
 
     install.py VAULT            add the hooks to VAULT/.claude/settings.json
     install.py VAULT --remove   remove only these hooks
@@ -15,7 +15,8 @@ import sys
 import time
 
 EVENTS = ("SessionStart", "UserPromptSubmit", "PostToolUse", "Stop")
-MARK = "/.agent-office/addons/session/hook.py"
+MARK = "/.tarokaja/addons/session/hook.py"
+OLD_MARKS = ("/.agent-office/addons/session/hook.py",)   # the hook path before the rename to Tarokaja
 
 
 def strip(hooks):
@@ -28,7 +29,7 @@ def strip(hooks):
         kept = []
         for g in groups:
             if isinstance(g, dict) and isinstance(g.get("hooks"), list):
-                inner = [h for h in g["hooks"] if not (isinstance(h, dict) and MARK in str(h.get("command", "")))]
+                inner = [h for h in g["hooks"] if not (isinstance(h, dict) and any(m in str(h.get("command", "")) for m in (MARK,) + OLD_MARKS))]
                 if not inner:
                     continue
                 g = dict(g, hooks=inner)

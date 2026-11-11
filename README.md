@@ -1,30 +1,32 @@
-# Agent Office
+# Tarokaja
 
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 0.1 | 2026-11-11 | GanniPiece | First version |
 | 0.2 | 2026-11-11 | GanniPiece | Language profiles (`en`, `zh-TW`), `install.sh --lang` and `--link`, stream-json log for Claude Code |
 | 0.3 | 2026-11-11 | GanniPiece | Add-ons: timelog and session |
-| 0.4 | 2026-11-11 | GanniPiece | Why Agent Office: comparison with other agent tools |
+| 0.4 | 2026-11-11 | GanniPiece | Why Tarokaja: comparison with other agent tools |
+| 0.5 | 2026-11-11 | GanniPiece | Rename from Agent Office to Tarokaja: folder `.tarokaja/`, variables `TK_*` |
 
-- Agent Office runs an AI agent as a team member inside an Obsidian vault on macOS.
+- Tarokaja runs an AI agent as a team member inside an Obsidian vault on macOS. It turns the vault into an office: you are the manager, and the agent works for you.
+- The name: Tarōkaja (太郎冠者) is the servant in Japanese Kyōgen theater. The master sends him on errands, and he comes back to report and to ask what to do next.
 - Tickets are plain Markdown notes, work covers notes and research in addition to code, and only the manager closes a ticket.
-- The agent works like a team member, not a tool that you watch: it stops for your decisions and your review. See [Why Agent Office](#why-agent-office).
+- The agent works like a team member, not a tool that you watch: it stops for your decisions and your review. See [Why Tarokaja](#why-tarokaja).
 - Start at [Installation](#installation) and [First run](#first-run) to set up a vault and complete ticket `T-001`.
 - Not in this document:
   - Data format and state machine specification for tool authors: [PROTOCOL.md](PROTOCOL.md)
   - Agent session rules inside a vault: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md))
 
-## Why Agent Office
+## Why Tarokaja
 
-Other tools cover one part of this workflow. Agent Office puts the parts together around a manager and a team member.
+Other tools cover one part of this workflow. Tarokaja puts the parts together around a manager and a team member.
 
-| Feature | Agent Office | Other tools | Note |
+| Feature | Tarokaja | Other tools | Note |
 |---|---|---|---|
 | Manager workflow | • The agent stops with `agent_state: decide` or `review` and waits for you.<br>• You answer in a meeting and accept the work.<br>• Only you close a ticket. | Most agent boards end with a diff or a pull request for you to review. | |
 | Shared ownership in one ticket | • Subtasks that end with `(agent)` belong to the agent.<br>• All other subtasks stay yours. | Most boards assign a whole card to one agent. | |
 | All kinds of work | Tickets cover notes, research, documents, and admin work, not only code. | • Vibe Kanban runs each task in a git worktree of a code repo.<br>• Backlog.md keeps tasks as Markdown files in a code repo. | `agent_dir` gives a ticket a code folder when it needs one. |
-| Your notes are the board | • Tickets are plain Markdown in your Obsidian vault.<br>• Breadcrumbs, Daily notes, and links stay in the notes that you already use. | Most boards keep tasks in their own app or in a code repo. | You can read and edit every ticket without Agent Office. |
+| Your notes are the board | • Tickets are plain Markdown in your Obsidian vault.<br>• Breadcrumbs, Daily notes, and links stay in the notes that you already use. | Most boards keep tasks in their own app or in a code repo. | You can read and edit every ticket without Tarokaja. |
 | One agent CLI or another | Claude Code, Codex CLI, Antigravity CLI, or Gemini CLI | | One CLI per vault |
 | Time per ticket | The `timelog` add-on counts your time and the agent's time on each ticket. | Pixel-office and notch status apps show what a session does now, with no ticket behind it. | **Optional** add-on |
 | Small footprint | • Bash, Python standard library, cmux, and Obsidian<br>• No server, database, or account | | macOS only |
@@ -71,27 +73,27 @@ flowchart LR
    ```
 4. Start the TUI from the vault folder:
    ```bash
-   python3 .agent-office/tui.py
+   python3 .tarokaja/tui.py
    ```
 
 | Option | Default | Note |
 |---|---|---|
 | `VAULT_DIR` | | • Target folder path. <br>• Existing files in the folder stay untouched. |
-| `--agent <cli>` | `claude` | • **Optional.** <br>• Sets `AGENT_CLI` in `.agent-office/config` to `claude`, `codex`, `agy`, or `gemini`. |
+| `--agent <cli>` | `claude` | • **Optional.** <br>• Sets `AGENT_CLI` in `.tarokaja/config` to `claude`, `codex`, `agy`, or `gemini`. |
 | `--lang <lang>` | `en` | • **Optional.**<br>• Sets the language profile: `en` or `zh-TW`. See [Language profiles](#language-profiles).<br>• A reinstall without `--lang` keeps the language in `config`. |
-| `--addons <list>` | Empty | • **Optional.** <br>• Sets `ADDONS` in `.agent-office/config` to comma-separated add-on names (`timelog`, `session`), described in [Add-ons](#add-ons). <br>• A reinstall without `--addons` keeps `ADDONS` in `config`. <br>• An unknown add-on name exits with status `2`. |
-| `--rules <path>` | `AGENTS.md` | • **Optional.** <br>• Path of the agent rules file, relative to `VAULT_DIR`, such as `"Agent Office/AGENTS.md"`. <br>• Sets `RULES_FILE` in `.agent-office/config`. <br>• The vault root then gets no `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`, so your own agent sessions in the vault do not load the office rules. <br>• A reinstall without `--rules` keeps `RULES_FILE`. |
+| `--addons <list>` | Empty | • **Optional.** <br>• Sets `ADDONS` in `.tarokaja/config` to comma-separated add-on names (`timelog`, `session`), described in [Add-ons](#add-ons). <br>• A reinstall without `--addons` keeps `ADDONS` in `config`. <br>• An unknown add-on name exits with status `2`. |
+| `--rules <path>` | `AGENTS.md` | • **Optional.** <br>• Path of the agent rules file, relative to `VAULT_DIR`, such as `"Tarokaja/AGENTS.md"`. <br>• Sets `RULES_FILE` in `.tarokaja/config`. <br>• The vault root then gets no `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`, so your own agent sessions in the vault do not load the office rules. <br>• A reinstall without `--rules` keeps `RULES_FILE`. |
 | `--link` | Off | • **Optional.**<br>• Links the scripts to this repo instead of copying them. See [Development](#development). |
-| `--schedule` | Off | • **Optional.** <br>• Loads the `launchd` job `local.agent-office.tick` to run `.agent-office/tick.sh` every 5 minutes. |
+| `--schedule` | Off | • **Optional.** <br>• Loads the `launchd` job `local.tarokaja.tick` to run `.tarokaja/tick.sh` every 5 minutes. |
 
 ## First run
 
-`install.sh` creates the example ticket `T-001` (`Tickets/T-001 Try Agent Office.md` for `en`) with `status: doing` and one subtask marked `(agent)`. A vault that has tickets already does not get the example ticket.
+`install.sh` creates the example ticket `T-001` (`Tickets/T-001 Try Tarokaja.md` for `en`) with `status: doing` and one subtask marked `(agent)`. A vault that has tickets already does not get the example ticket.
 
-1. Select `T-001 Try Agent Office` in the TUI.
-2. Press `w` in the TUI, or run `.agent-office/work.sh T-001`, to start one background work session.
-3. Read the new `[agent]` breadcrumb in `Tickets/T-001 Try Agent Office.md` and the output note under `Office/outputs/T-001/`.
-4. Press `m` in the TUI, or run `.agent-office/meeting.sh T-001`, to hold the meeting and accept the work.
+1. Select `T-001 Try Tarokaja` in the TUI.
+2. Press `w` in the TUI, or run `.tarokaja/work.sh T-001`, to start one background work session.
+3. Read the new `[agent]` breadcrumb in `Tickets/T-001 Try Tarokaja.md` and the output note under `Office/outputs/T-001/`.
+4. Press `m` in the TUI, or run `.tarokaja/meeting.sh T-001`, to hold the meeting and accept the work.
 
 ## Daily use
 
@@ -101,11 +103,11 @@ flowchart LR
 | Start a ticket | Press `s` then `d` in the TUI, or set `status: doing` in frontmatter. | Keep at most 3 tickets in `doing` at one time. |
 | Delegate a subtask | Add ` (agent)` to the end of an open subtask line under `## Subtasks`, or press `t` in the TUI and tell the agent. | The next work session works on the subtask. |
 | Delegate a whole ticket | Set `owner: agent` in the ticket frontmatter. | Only the manager sets `owner`. |
-| Allow code work in a folder | 1. Add the parent folder to `AGENT_DIR_ROOTS` in `.agent-office/config`.<br>2. Set `agent_dir: /absolute/path/to/repo` in the ticket frontmatter. | • **Optional.**<br>• `work.sh` refuses an `agent_dir` outside `AGENT_DIR_ROOTS`. The agent can edit tickets, so the allowlist stays in `config`, which Claude Code may not edit. |
+| Allow code work in a folder | 1. Add the parent folder to `AGENT_DIR_ROOTS` in `.tarokaja/config`.<br>2. Set `agent_dir: /absolute/path/to/repo` in the ticket frontmatter. | • **Optional.**<br>• `work.sh` refuses an `agent_dir` outside `AGENT_DIR_ROOTS`. The agent can edit tickets, so the allowlist stays in `config`, which Claude Code may not edit. |
 | Find tickets waiting on you | Select `Needs me` in the TUI or in `Tickets/Board.base`. | Lists tickets where `agent_state` is `decide` or `review`. |
 | Schedule a meeting | Press `M` in the TUI, or set `meeting: YYYY-MM-DD HH:MM` in frontmatter. | `tick.sh` writes the agenda before the meeting and sends a reminder. |
-| Hold a meeting | Press `m` in the TUI, or run `.agent-office/meeting.sh <ID>`. | Answer open decisions one at a time and accept or reject the work. |
-| Talk without an agenda | Press `Enter` or `t` in the TUI, or run `.agent-office/meeting.sh <ID> --talk`. | Ask for progress, record your own steps, or delegate a subtask. |
+| Hold a meeting | Press `m` in the TUI, or run `.tarokaja/meeting.sh <ID>`. | Answer open decisions one at a time and accept or reject the work. |
+| Talk without an agenda | Press `Enter` or `t` in the TUI, or run `.tarokaja/meeting.sh <ID> --talk`. | Ask for progress, record your own steps, or delegate a subtask. |
 | Close or drop a ticket | Accept the work during a meeting, or press `s` in the TUI and select `o` (`done`) or `x` (`dropped`). | Only the manager sets `done` or `dropped`. |
 
 ## TUI keys
@@ -131,19 +133,19 @@ flowchart LR
 
 | Script | Command | Action | Note |
 |---|---|---|---|
-| `work.sh` | `.agent-office/work.sh <ID>` | Runs one background work session on ticket `<ID>`. | • Requires `status: doing`, empty `agent_state`, and an open `(agent)` subtask or `owner: agent`. <br>• Skips while another session on `<ID>` runs. A lock left by a crash is removed. <br>• Writes the final answer of the agent to `.agent-office/logs/<ID>-last-work.txt` and epoch seconds to `<ID>.last-work`.<br>• With `claude`, also writes the live event log to `.agent-office/logs/<ID>-stream.jsonl`. |
-| `prep.sh` | `.agent-office/prep.sh <ID>` | Runs one background session to write the meeting agenda at `Office/meetings/<YYYY-MM-DD HHMM> <ID>.md`. | • Requires `meeting` on the ticket. <br>• Skips while another session on `<ID>` runs. |
-| `meeting.sh` | • `.agent-office/meeting.sh <ID>`. <br>• `.agent-office/meeting.sh <ID> --talk`. | Runs an interactive agent session for a meeting or an ad-hoc talk. | • Tells the agent not to edit the ticket body while a background session runs on `<ID>`.<br>• While a meeting runs, no background session starts on `<ID>`. |
-| `tick.sh` | `.agent-office/tick.sh` | • Sends meeting reminders and runs `prep.sh` for every open ticket with a `meeting`.<br>• Starts `work.sh` for delegated tickets. | • `launchd` runs this script every 5 minutes when installed with `--schedule`.<br>• Sessions start in the background, so a long session does not delay a reminder.<br>• `prep.sh` runs one time per meeting, also when it fails. |
-| `tui.py` | • `python3 .agent-office/tui.py`. <br>• `python3 .agent-office/tui.py --print`. | Runs the 3-column terminal UI, or prints the open board once and exits with `--print`. | Uses the Python 3.8+ standard library only. |
+| `work.sh` | `.tarokaja/work.sh <ID>` | Runs one background work session on ticket `<ID>`. | • Requires `status: doing`, empty `agent_state`, and an open `(agent)` subtask or `owner: agent`. <br>• Skips while another session on `<ID>` runs. A lock left by a crash is removed. <br>• Writes the final answer of the agent to `.tarokaja/logs/<ID>-last-work.txt` and epoch seconds to `<ID>.last-work`.<br>• With `claude`, also writes the live event log to `.tarokaja/logs/<ID>-stream.jsonl`. |
+| `prep.sh` | `.tarokaja/prep.sh <ID>` | Runs one background session to write the meeting agenda at `Office/meetings/<YYYY-MM-DD HHMM> <ID>.md`. | • Requires `meeting` on the ticket. <br>• Skips while another session on `<ID>` runs. |
+| `meeting.sh` | • `.tarokaja/meeting.sh <ID>`. <br>• `.tarokaja/meeting.sh <ID> --talk`. | Runs an interactive agent session for a meeting or an ad-hoc talk. | • Tells the agent not to edit the ticket body while a background session runs on `<ID>`.<br>• While a meeting runs, no background session starts on `<ID>`. |
+| `tick.sh` | `.tarokaja/tick.sh` | • Sends meeting reminders and runs `prep.sh` for every open ticket with a `meeting`.<br>• Starts `work.sh` for delegated tickets. | • `launchd` runs this script every 5 minutes when installed with `--schedule`.<br>• Sessions start in the background, so a long session does not delay a reminder.<br>• `prep.sh` runs one time per meeting, also when it fails. |
+| `tui.py` | • `python3 .tarokaja/tui.py`. <br>• `python3 .tarokaja/tui.py --print`. | Runs the 3-column terminal UI, or prints the open board once and exits with `--print`. | Uses the Python 3.8+ standard library only. |
 
 ## Configuration
 
-The scripts read `.agent-office/config`. An environment variable with the same name overrides the file value.
+The scripts read `.tarokaja/config`. An environment variable with the same name overrides the file value.
 
 | Key | Default | Note |
 |---|---|---|
-| `AO_LANG` | `en` | Language profile: `en` or `zh-TW`. |
+| `TK_LANG` | `en` | Language profile: `en` or `zh-TW`. |
 | `AGENT_CLI` | `claude` | Agent CLI for all sessions: `claude`, `codex`, `agy`, or `gemini`. |
 | `WORK_EVERY_HOURS` | `4` | Minimum hours between scheduled `work.sh` sessions on the same ticket. |
 | `WORK_HOURS_FROM` | `9` | Start hour in local 24-hour time (inclusive) for scheduled `work.sh` sessions in `tick.sh`. |
@@ -151,11 +153,11 @@ The scripts read `.agent-office/config`. An environment variable with the same n
 | `PREP_BEFORE_MIN` | `60` | Minutes before `meeting` when `tick.sh` runs `prep.sh` if the agenda file does not exist yet. |
 | `REMIND_BEFORE_MIN` | `5` | Minutes before `meeting` when `tick.sh` sends a one-time reminder notification. |
 | `AGENT_DIR_ROOTS` | Empty | • **Optional.**<br>• Folders where `agent_dir` may point, separated by `:`, such as `~/code:~/projects`.<br>• Empty turns `agent_dir` off. |
-| `ADDONS` | Empty | • **Optional.** <br>• Comma-separated add-on folder names in `.agent-office/addons/`, such as `timelog,session`. <br>• Empty turns all add-ons off and changes nothing in the core. |
+| `ADDONS` | Empty | • **Optional.** <br>• Comma-separated add-on folder names in `.tarokaja/addons/`, such as `timelog,session`. <br>• Empty turns all add-ons off and changes nothing in the core. |
 
 ## Add-ons
 
-Turn on add-ons during installation or in `.agent-office/config`:
+Turn on add-ons during installation or in `.tarokaja/config`:
 
 ```bash
 ./install.sh /path/to/vault --addons timelog,session
@@ -163,12 +165,12 @@ Turn on add-ons during installation or in `.agent-office/config`:
 
 | Add-on | Behavior | Note |
 |---|---|---|
-| `timelog` | • Logs time events as `{at, kind, ref}` in `.agent-office/logs/time/<ID>.jsonl`. <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<ID>`. <br>• Writes a per-ticket table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW`) in `Daily/YYYY-MM-DD.md` for the last 7 days. <br>• Replaces only that section of the note. Never creates a missing note. <br>• Records ticket status changes in `.agent-office/logs/status/<ID>.jsonl`. <br>• `python3 .agent-office/addons/timelog/timelog.py week` prints this week's time. `R` in the TUI shows the same report. | Syncs at the end of each session or meeting and on each `tick.sh` run. |
-| `session` | • Binds one interactive Claude Code session to each ticket. <br>• Writes `session: <SID>` in ticket frontmatter and `.agent-office/logs/sessions/<SID>.json` with the `cmux` surface and workspace. <br>• Resumes that session with `claude --resume <SID>` in the next `meeting.sh` when its transcript exists. <br>• With `timelog` on, also logs agent time for the interactive session. | • Works with `claude` only. <br>• `addons/session/install.py <VAULT_DIR>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT_DIR>/.claude/settings.json`, never to `~/.claude`, and backs up the file. <br>• `install.py <VAULT_DIR> --remove` removes only its hooks. |
+| `timelog` | • Logs time events as `{at, kind, ref}` in `.tarokaja/logs/time/<ID>.jsonl`. <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<ID>`. <br>• Writes a per-ticket table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW`) in `Daily/YYYY-MM-DD.md` for the last 7 days. <br>• Replaces only that section of the note. Never creates a missing note. <br>• Records ticket status changes in `.tarokaja/logs/status/<ID>.jsonl`. <br>• `python3 .tarokaja/addons/timelog/timelog.py week` prints this week's time. `R` in the TUI shows the same report. | Syncs at the end of each session or meeting and on each `tick.sh` run. |
+| `session` | • Binds one interactive Claude Code session to each ticket. <br>• Writes `session: <SID>` in ticket frontmatter and `.tarokaja/logs/sessions/<SID>.json` with the `cmux` surface and workspace. <br>• Resumes that session with `claude --resume <SID>` in the next `meeting.sh` when its transcript exists. <br>• With `timelog` on, also logs agent time for the interactive session. | • Works with `claude` only. <br>• `addons/session/install.py <VAULT_DIR>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT_DIR>/.claude/settings.json`, never to `~/.claude`, and backs up the file. <br>• `install.py <VAULT_DIR> --remove` removes only its hooks. |
 
-- For each name in `ADDONS`, the core scripts call `.agent-office/addons/<name>/on_event <EVENT> <ID> <REF>`.
+- For each name in `ADDONS`, the core scripts call `.tarokaja/addons/<name>/on_event <EVENT> <ID> <REF>`.
 - Session events are `session_start`, `session_tick` (every 60 s), and `session_end` with `REF` set to `bg` for `work` and `prep` sessions.
-- Background sessions export `AO_HEADLESS=1`.
+- Background sessions export `TK_HEADLESS=1`.
 - Meeting events are `meeting_start`, `meeting_tick` (every 60 s), and `meeting_end` with `REF` set to the `meeting.sh` PID.
 - With `ADDONS` non-empty, `meeting.sh` does not `exec` the agent, so it can send `meeting_end` on exit.
 - `tick.sh` sends `tick` with `ID` and `REF` set to `-` once per run.
@@ -176,7 +178,7 @@ Turn on add-ons during installation or in `.agent-office/config`:
 
 ## Language profiles
 
-A profile sets the words that the scripts, the TUI, and the agent use in tickets. `AO_LANG` in `.agent-office/config` selects it. The files are `.agent-office/profiles/<lang>.conf`.
+A profile sets the words that the scripts, the TUI, and the agent use in tickets. `TK_LANG` in `.tarokaja/config` selects it. The files are `.tarokaja/profiles/<lang>.conf`.
 
 | Key | `en` | `zh-TW` | Note |
 |---|---|---|---|
@@ -192,32 +194,32 @@ A profile sets the words that the scripts, the TUI, and the agent use in tickets
 | `RULES_FILE` | `AGENTS.md` | `AGENTS.md` | `install.sh` copies the rules of the profile language. |
 | `WRITE_LANG` | `English` | `Traditional Chinese (Taiwan)…` | The language of ticket text and of the final report |
 
-- You can set each key in `.agent-office/config` too. Order: environment variable, `config`, profile, built-in default.
-- Example: a vault that keeps its meeting notes in another folder sets `MEETINGS_DIR=Agent Office/會議` in `config`.
+- You can set each key in `.tarokaja/config` too. Order: environment variable, `config`, profile, built-in default.
+- Example: a vault that keeps its meeting notes in another folder sets `MEETINGS_DIR=Tarokaja/會議` in `config`.
 
 ## Schedule
 
-`install.sh --schedule` writes `$HOME/Library/LaunchAgents/local.agent-office.tick.<N>.plist` and loads the `launchd` job `local.agent-office.tick.<N>`. `<N>` is a checksum of the vault path, so each vault has its own job. `install.sh` prints the plist path. The plist sets `AbandonProcessGroup`, so `launchd` does not stop the background sessions when `tick.sh` exits. The job runs `.agent-office/tick.sh` every 300 seconds and writes standard output and error to `.agent-office/logs/tick.out` and `.agent-office/logs/tick.err`.
+`install.sh --schedule` writes `$HOME/Library/LaunchAgents/local.tarokaja.tick.<N>.plist` and loads the `launchd` job `local.tarokaja.tick.<N>`. `<N>` is a checksum of the vault path, so each vault has its own job. `install.sh` prints the plist path. The plist sets `AbandonProcessGroup`, so `launchd` does not stop the background sessions when `tick.sh` exits. The job runs `.tarokaja/tick.sh` every 300 seconds and writes standard output and error to `.tarokaja/logs/tick.out` and `.tarokaja/logs/tick.err`.
 
 1. Find the job label:
    ```bash
-   launchctl list | grep agent-office
+   launchctl list | grep tarokaja
    ```
 2. Stop the job. Replace `<N>` with the number from step 1:
    ```bash
-   launchctl bootout "gui/$(id -u)/local.agent-office.tick.<N>"
+   launchctl bootout "gui/$(id -u)/local.tarokaja.tick.<N>"
    ```
 3. Remove the plist file:
    ```bash
-   rm "$HOME/Library/LaunchAgents/local.agent-office.tick.<N>.plist"
+   rm "$HOME/Library/LaunchAgents/local.tarokaja.tick.<N>.plist"
    ```
 
 ## Safety
 
 | Agent CLI | Access | Limit | Note |
 |---|---|---|---|
-| `claude` | • Edits files with `--permission-mode acceptEdits`. <br>• Uses `--allowedTools "Read,Edit,Write,Glob,Grep,WebSearch,WebFetch"`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>` and enables `Bash(git:*)`, `Bash(uv:*)`, `Bash(python3:*)`, and `Bash(ls:*)`. | • `--disallowedTools` blocks read and edit of `private/`, `.obsidian/`, and `.trash/`, and edit of `.agent-office/`. <br>• Caps headless sessions at `--max-turns 40`. | • With `agent_dir`, these commands can read, write, and run anything that you can, also `private/` and `.agent-office/config`.<br>• Set `agent_dir` only on tickets that you trust. |
-| `codex` | • Runs in the vault with `-C "$VAULT"` and `--skip-git-repo-check`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>`. | • Restricts writes with the `--sandbox workspace-write` sandbox. <br>• Relies on [locale/en/AGENTS.md](locale/en/AGENTS.md) for path rules. | The sandbox lets `codex` write any file in the vault, also `.agent-office/config`. |
+| `claude` | • Edits files with `--permission-mode acceptEdits`. <br>• Uses `--allowedTools "Read,Edit,Write,Glob,Grep,WebSearch,WebFetch"`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>` and enables `Bash(git:*)`, `Bash(uv:*)`, `Bash(python3:*)`, and `Bash(ls:*)`. | • `--disallowedTools` blocks read and edit of `private/`, `.obsidian/`, and `.trash/`, and edit of `.tarokaja/`. <br>• Caps headless sessions at `--max-turns 40`. | • With `agent_dir`, these commands can read, write, and run anything that you can, also `private/` and `.tarokaja/config`.<br>• Set `agent_dir` only on tickets that you trust. |
+| `codex` | • Runs in the vault with `-C "$VAULT"` and `--skip-git-repo-check`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>`. | • Restricts writes with the `--sandbox workspace-write` sandbox. <br>• Relies on [locale/en/AGENTS.md](locale/en/AGENTS.md) for path rules. | The sandbox lets `codex` write any file in the vault, also `.tarokaja/config`. |
 | `agy` | • Edits files with `--mode accept-edits`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>`. | • Stops headless sessions at `--print-timeout 1800s`. <br>• Relies on [locale/en/AGENTS.md](locale/en/AGENTS.md) for path rules. | Cannot run shell commands in headless mode. |
 | `gemini` | • Edits files with `--approval-mode auto_edit` and `--skip-trust`. <br>• With `agent_dir` in headless mode, adds `--include-directories <agent_dir>`. | Relies on [locale/en/AGENTS.md](locale/en/AGENTS.md) for path rules. | Not verified with a real `gemini` CLI. |
 
@@ -232,7 +234,7 @@ A profile sets the words that the scripts, the TUI, and the agent use in tickets
 
 | Item | Behavior | Note |
 |---|---|---|
-| Linked files | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `tick.sh`, `tui.py`, `profiles/`, `addons/` | Each one is a symlink into `template/.agent-office/` of the repo. |
+| Linked files | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `tick.sh`, `tui.py`, `profiles/`, `addons/` | Each one is a symlink into `template/.tarokaja/` of the repo. |
 | Local files | `config`, `logs/` | Never in the repo |
 | Changed scripts | A script in the vault that differs from the repo is kept as `<name>.bak`. | A script that is the same as the repo is replaced without a backup. |
 
@@ -253,12 +255,12 @@ bash tests/run.sh
 | `T-001-last-work.txt` shows `IneligibleTierError` from `gemini` | The Gemini CLI free tier for individuals stopped working. | Set `AGENT_CLI=agy`, or use a paid Gemini API key. |
 | Scheduled sessions stop after some days with `claude` | The Claude Code sign-in expired. A background job cannot sign in again. | Run `claude setup-token` and use that token for unattended jobs. |
 | `tick.err` shows `Operation not permitted` | macOS privacy controls block `launchd` jobs from folders such as `~/Documents` or iCloud Drive. Not verified. | • Move the vault to a folder such as `~/vaults`.<br>• Or give `/bin/bash` Full Disk Access in System Settings. |
-| The TUI says "a session running" for a long time | A session runs, or the agent CLI waits for input. | Read `.agent-office/logs/<ID>-last-work.txt` and `.agent-office/logs/agent.log`. |
+| The TUI says "a session running" for a long time | A session runs, or the agent CLI waits for input. | Read `.tarokaja/logs/<ID>-last-work.txt` and `.tarokaja/logs/agent.log`. |
 
 ## Limits
 
 - No web GUI.
-- One agent CLI per vault (`AGENT_CLI` in `.agent-office/config`).
+- One agent CLI per vault (`AGENT_CLI` in `.tarokaja/config`).
 - Session binding per ticket (`session` add-on) works with `claude` only.
 - macOS only.
 

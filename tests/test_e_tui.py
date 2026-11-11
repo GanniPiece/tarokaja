@@ -10,7 +10,7 @@ import time
 
 
 def load_tui(vault):
-    tui_path = os.path.join(vault, ".agent-office", "tui.py")
+    tui_path = os.path.join(vault, ".tarokaja", "tui.py")
     spec = importlib.util.spec_from_file_location("tui_e", tui_path)
     assert spec is not None and spec.loader is not None, "Failed to load spec for tui.py"
     mod = importlib.util.module_from_spec(spec)
@@ -19,7 +19,7 @@ def load_tui(vault):
 
 
 def set_addons(vault, addons_val):
-    cfg_path = os.path.join(vault, ".agent-office", "config")
+    cfg_path = os.path.join(vault, ".tarokaja", "config")
     with open(cfg_path, encoding="utf-8") as fh:
         text = fh.read()
     if re.search(r"^ADDONS=", text, flags=re.M):
@@ -32,7 +32,7 @@ def set_addons(vault, addons_val):
 
 def main():
     vault = sys.argv[1]
-    timelog_py = os.path.join(vault, ".agent-office", "addons", "timelog", "timelog.py")
+    timelog_py = os.path.join(vault, ".tarokaja", "addons", "timelog", "timelog.py")
     assert os.path.isfile(timelog_py), f"Missing {timelog_py}"
 
     # 1. When timelog is off, week_report_lines() returns []

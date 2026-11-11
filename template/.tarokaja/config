@@ -1,11 +1,11 @@
-# Agent Office settings. The scripts and the TUI read this file.
+# Tarokaja settings. The scripts and the TUI read this file.
 # An environment variable with the same name wins over the value here.
 
 # Language profile: en or zh-TW. It sets the ticket headings, the delegation marker,
 # breadcrumb words, folder names, and the rules file (see profiles/<lang>.conf).
-# Any key of the profile can be set here too, such as MEETINGS_DIR=Agent Office/會議
+# Any key of the profile can be set here too, such as MEETINGS_DIR=Tarokaja/會議
 # An empty value here does not clear a profile key: the profile value is used.
-AO_LANG=en
+TK_LANG=en
 
 # The agent CLI for all sessions: claude (Claude Code), codex (Codex CLI),
 # agy (Google Antigravity CLI), or gemini (Gemini CLI, needs a paid Gemini API key or Vertex AI)
@@ -26,7 +26,7 @@ REMIND_BEFORE_MIN=5
 # anything that you can, also this config file. Set agent_dir only on tickets that you trust.
 AGENT_DIR_ROOTS=
 
-# Optional: add-ons, separated by ",". Each one is a folder in .agent-office/addons/.
+# Optional: add-ons, separated by ",". Each one is a folder in .tarokaja/addons/.
 #   timelog  time per ticket for you and the agent: time_me, time_agent, a table in the Daily note
 #   session  Claude Code only: one interactive session per ticket, resumed at the next meeting
 # Empty means no add-on. install.sh --addons timelog,session sets this line.

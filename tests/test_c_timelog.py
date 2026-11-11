@@ -45,7 +45,7 @@ def run_cmd(cmd, cwd):
 
 def main():
     vault = sys.argv[1]
-    ao_dir = os.path.join(vault, ".agent-office")
+    ao_dir = os.path.join(vault, ".tarokaja")
     timelog_py = os.path.join(ao_dir, "addons", "timelog", "timelog.py")
     on_event = os.path.join(ao_dir, "addons", "timelog", "on_event")
 
@@ -57,7 +57,7 @@ def main():
     t0 = int(dt.datetime(2026, 11, 11, 10, 0, 0).timestamp())
     now = int(dt.datetime(2026, 11, 11, 14, 0, 0).timestamp())
 
-    t1_path = os.path.join(vault, "Tickets", "T-001 Try Agent Office.md")
+    t1_path = os.path.join(vault, "Tickets", "T-001 Try Tarokaja.md")
     assert os.path.isfile(t1_path), "Missing T-001 ticket"
 
     # 1. Write events on T-001 with --at:
@@ -122,7 +122,7 @@ def main():
         "",
         "| Ticket | Me (min) | Agent (min) |",
         "|---|---|---|",
-        "| [[T-001 Try Agent Office]] | 1 | 1 |",
+        "| [[T-001 Try Tarokaja]] | 1 | 1 |",
         "| Total | 1 | 1 |",
         "",
         "## Evening",
@@ -147,7 +147,7 @@ def main():
     daily_en = read_text(daily_path)
     assert "## Time" in daily_en, f"Missing ## Time in {daily_en}"
     assert "| Ticket | Me (min) | Agent (min) |" in daily_en, f"Missing en table header in {daily_en}"
-    assert "| [[T-001 Try Agent Office]] | 15 | 25 |" in daily_en, f"Missing T-001 row in {daily_en}"
+    assert "| [[T-001 Try Tarokaja]] | 15 | 25 |" in daily_en, f"Missing T-001 row in {daily_en}"
     assert "| [[T-002 Old system task]] | 8 | 12 |" in daily_en, f"Missing T-002 row in {daily_en}"
     assert "| Total | 23 | 37 |" in daily_en, f"Missing Total row in {daily_en}"
     assert "| 1 | 1 |" not in daily_en, f"Old section was not replaced in {daily_en}"
@@ -162,14 +162,14 @@ def main():
     write_text(daily_path, "# 2026-11-11\n")
     cfg_path = os.path.join(ao_dir, "config")
     cfg_orig = read_text(cfg_path)
-    write_text(cfg_path, re.sub(r"^AO_LANG=.*$", "AO_LANG=zh-TW", cfg_orig, flags=re.M))
+    write_text(cfg_path, re.sub(r"^TK_LANG=.*$", "TK_LANG=zh-TW", cfg_orig, flags=re.M))
     try:
         run_cmd([sys.executable, "-I", timelog_py, "sync", "--now", str(now)], cwd=vault)
         assert daily_zh_ok(daily_path), "Daily note lost its first line"
         daily_zh = read_text(daily_path)
         assert "## 時間" in daily_zh, f"Missing ## 時間 in {daily_zh}"
         assert "| 卡片 | 我（分） | agent（分） |" in daily_zh, f"Missing zh-TW table header in {daily_zh}"
-        assert "| [[T-001 Try Agent Office]] | 15 | 25 |" in daily_zh, f"Missing T-001 row in {daily_zh}"
+        assert "| [[T-001 Try Tarokaja]] | 15 | 25 |" in daily_zh, f"Missing T-001 row in {daily_zh}"
         assert "| [[T-002 Old system task]] | 8 | 12 |" in daily_zh, f"Missing T-002 row in {daily_zh}"
         assert "| 合計 | 23 | 37 |" in daily_zh, f"Missing 合計 row in {daily_zh}"
     finally:

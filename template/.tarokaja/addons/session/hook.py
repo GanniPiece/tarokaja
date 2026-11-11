@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Agent Office add-on "session": a Claude Code hook that binds an interactive session to a ticket.
+"""Tarokaja add-on "session": a Claude Code hook that binds an interactive session to a ticket.
 
 Claude Code runs this file on SessionStart, UserPromptSubmit, PostToolUse, and Stop (install.py adds the hooks).
-It acts only when meeting.sh started the session: AO_TICKET is set and AO_HEADLESS is not.
+It acts only when meeting.sh started the session: TK_TICKET is set and TK_HEADLESS is not.
   - logs/sessions/<session id>.json: session, ticket, surface, workspace (cmux), last_seen
   - the ticket frontmatter gets session: <session id>, so the next meeting resumes it
   - with the timelog add-on: agent_start on a prompt, agent_tick after a tool (at most once a minute), agent_end on Stop
@@ -15,9 +15,9 @@ import subprocess
 import sys
 import time
 
-AO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # keep symlinks: no realpath
-VAULT = os.path.dirname(AO_DIR)
-SESSIONS = os.path.join(AO_DIR, "logs", "sessions")
+TK_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # keep symlinks: no realpath
+VAULT = os.path.dirname(TK_DIR)
+SESSIONS = os.path.join(TK_DIR, "logs", "sessions")
 TICK_EVERY = 60
 ID_RE = re.compile(r"^T-\d+$")
 SID_RE = re.compile(r"^[A-Za-z0-9-]{1,100}$")
@@ -37,7 +37,7 @@ def _conf(path):
 
 
 def addons():
-    val = os.environ.get("ADDONS") or _conf(os.path.join(AO_DIR, "config")).get("ADDONS", "")
+    val = os.environ.get("ADDONS") or _conf(os.path.join(TK_DIR, "config")).get("ADDONS", "")
     return [a.strip() for a in val.split(",") if a.strip()]
 
 
@@ -99,15 +99,15 @@ def unbind_others(tid, sid):
 
 
 def timelog(tid, kind, sid):
-    script = os.path.join(AO_DIR, "addons", "timelog", "timelog.py")
+    script = os.path.join(TK_DIR, "addons", "timelog", "timelog.py")
     if os.path.isfile(script):
         subprocess.run([sys.executable, "-I", script, "add", tid, kind, sid],
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
 
 
 def main():
-    tid = os.environ.get("AO_TICKET", "")
-    if not ID_RE.match(tid) or os.environ.get("AO_HEADLESS"):
+    tid = os.environ.get("TK_TICKET", "")
+    if not ID_RE.match(tid) or os.environ.get("TK_HEADLESS"):
         return
     try:
         payload = json.loads(sys.stdin.read() or "{}")

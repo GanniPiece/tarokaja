@@ -1,4 +1,4 @@
-# Agent Office Protocol
+# Tarokaja Protocol
 
 | Version | Date | Author | Change |
 |---|---|---|---|
@@ -6,7 +6,7 @@
 | 0.2 | 2026-11-11 | GanniPiece | Language profiles: headings, marker, breadcrumb words, and folders per language |
 | 0.3 | 2026-11-11 | GanniPiece | Add-ons: timelog and session |
 
-- Defines the vault file layout, ticket schema, state machine, and cadence for Agent Office, independent of any script or UI.
+- Defines the vault file layout, ticket schema, state machine, and cadence for Tarokaja, independent of any script or UI.
 - Enables third-party tools to read and write the same Obsidian vault without data loss.
 - Read [Roles](#roles), [Ticket format](#ticket-format), and [State machine](#state-machine) first.
 - Not in this document:
@@ -30,13 +30,13 @@
 | `Daily/YYYY-MM-DD.md` | Manager and Agent | Daily note with `## Progress` and `## Next` sections. | Under `## Progress`, the agent keeps one numbered line per ticket: `[[T-<NNN> <title>]]: <one-line state>`. |
 | `Office/meetings/<YYYY-MM-DD HHMM> <id>.md` | Manager and Agent | Meeting agenda and outcomes for one ticket meeting. | The file name omits the colon from `HH:MM`. |
 | `Office/outputs/<id>/` | Agent | Work output notes for ticket `<id>`. | The agent links each output note in the ticket's `links` field. |
-| `.agent-office/config` | Manager | `KEY=VALUE` settings for cadence and `AGENT_CLI`. | The agent must never edit `.agent-office/`. |
-| `.agent-office/logs/` | Tooling | Lock directories, PID files, session logs, and timestamps. | Runtime state for schedulers and UIs. |
+| `.tarokaja/config` | Manager | `KEY=VALUE` settings for cadence and `AGENT_CLI`. | The agent must never edit `.tarokaja/`. |
+| `.tarokaja/logs/` | Tooling | Lock directories, PID files, session logs, and timestamps. | Runtime state for schedulers and UIs. |
 | `private/`, `.obsidian/`, `.trash/` | Manager and Obsidian | Private notes, editor configuration, and trash. | The agent must never read or write these paths. |
 
 ## Language profiles
 
-A vault uses one language profile, set by `AO_LANG` in `.agent-office/config`. The profile sets the words in this document that are shown in the `en` form. The reference values are in `template/.agent-office/profiles/<lang>.conf`.
+A vault uses one language profile, set by `TK_LANG` in `.tarokaja/config`. The profile sets the words in this document that are shown in the `en` form. The reference values are in `template/.tarokaja/profiles/<lang>.conf`.
 
 | Item | `en` | `zh-TW` |
 |---|---|---|
@@ -82,8 +82,8 @@ Every ticket starts with a YAML frontmatter block between `---` lines.
 | `links` | YAML list of wikilinks (`[]` when empty) | Manager or Agent | At most 5 wikilinks, such as `"[[Office/outputs/T-001/specs]]"`. |
 | `agent_dir` | Absolute folder path or `~/...` | Manager | • **Optional.** <br>• External folder where the agent may read, write, and run code commands. <br>• Only the manager sets `agent_dir`. |
 | `session` | Session ID (`[A-Za-z0-9-]+`) or empty | `session` add-on | • **Optional.** <br>• Written by the `session` add-on to bind an interactive Claude Code session to the ticket. <br>• `meeting.sh` resumes this session when its transcript exists. |
-| `time_me` | Integer minutes | `timelog` add-on | • **Optional.** <br>• Total manager minutes on the ticket from `.agent-office/logs/time/<id>.jsonl`. <br>• Written when no session or meeting runs on `<id>`. |
-| `time_agent` | Integer minutes | `timelog` add-on | • **Optional.** <br>• Total agent minutes on the ticket from `.agent-office/logs/time/<id>.jsonl`. <br>• Written when no session or meeting runs on `<id>`. |
+| `time_me` | Integer minutes | `timelog` add-on | • **Optional.** <br>• Total manager minutes on the ticket from `.tarokaja/logs/time/<id>.jsonl`. <br>• Written when no session or meeting runs on `<id>`. |
+| `time_agent` | Integer minutes | `timelog` add-on | • **Optional.** <br>• Total agent minutes on the ticket from `.tarokaja/logs/time/<id>.jsonl`. <br>• Written when no session or meeting runs on `<id>`. |
 
 ### Body sections
 
@@ -204,7 +204,7 @@ stateDiagram-v2
 
 ## Cadence
 
-Schedulers read settings from `.agent-office/config`. An environment variable with the same name overrides the file value.
+Schedulers read settings from `.tarokaja/config`. An environment variable with the same name overrides the file value.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -215,22 +215,22 @@ Schedulers read settings from `.agent-office/config`. An environment variable wi
 | `PREP_BEFORE_MIN` | `60` | Minutes before `meeting` to write the agenda. |
 | `REMIND_BEFORE_MIN` | `5` | Minutes before `meeting` to send a reminder notification. |
 | `AGENT_DIR_ROOTS` | Empty | • **Optional.**<br>• Folders where `agent_dir` may point, separated by `:`.<br>• Empty turns `agent_dir` off. |
-| `ADDONS` | Empty | • **Optional.** <br>• Comma-separated add-on folder names in `.agent-office/addons/`, such as `timelog,session`. <br>• Empty turns all add-ons off and changes nothing in the core. |
+| `ADDONS` | Empty | • **Optional.** <br>• Comma-separated add-on folder names in `.tarokaja/addons/`, such as `timelog,session`. <br>• Empty turns all add-ons off and changes nothing in the core. |
 
 On each scheduler tick (every 5 minutes in the reference `launchd` job), the scheduler checks each open ticket (`Tickets/T-*.md`, not `done` or `dropped`) in this order. Steps 1 and 2 apply to every open ticket. Step 3 applies only to delegated tickets. The scheduler starts sessions in the background and does not wait for them.
 
-1. **Reminder**: Check whether `meeting` is in the future and within `REMIND_BEFORE_MIN` minutes. If `.agent-office/logs/<id>.reminded-<YYYY-MM-DD HHMM>` does not exist, create it and send one notification.
-2. **Meeting prep**: Check whether `meeting` is in the future and within `PREP_BEFORE_MIN` minutes. If `Office/meetings/<YYYY-MM-DD HHMM> <id>.md` does not exist, no session runs on the ticket, and `.agent-office/logs/<id>.prepped-<YYYY-MM-DD HHMM>` does not exist: start a background `prep` session and skip step 3. The prep session creates the marker after it gets the lock. The marker allows one try per meeting, also when the session fails.
+1. **Reminder**: Check whether `meeting` is in the future and within `REMIND_BEFORE_MIN` minutes. If `.tarokaja/logs/<id>.reminded-<YYYY-MM-DD HHMM>` does not exist, create it and send one notification.
+2. **Meeting prep**: Check whether `meeting` is in the future and within `PREP_BEFORE_MIN` minutes. If `Office/meetings/<YYYY-MM-DD HHMM> <id>.md` does not exist, no session runs on the ticket, and `.tarokaja/logs/<id>.prepped-<YYYY-MM-DD HHMM>` does not exist: start a background `prep` session and skip step 3. The prep session creates the marker after it gets the lock. The marker allows one try per meeting, also when the session fails.
 3. **Work session**: Run a background `work` session when all conditions hold:
    - `status` equals `doing`.
    - `agent_state` is empty.
    - Current local hour `H` satisfies `WORK_HOURS_FROM <= H < WORK_HOURS_TO`.
-   - `now - last_work >= WORK_EVERY_HOURS * 3600`, where `last_work` comes from `.agent-office/logs/<id>.last-work` (`0` when missing).
+   - `now - last_work >= WORK_EVERY_HOURS * 3600`, where `last_work` comes from `.tarokaja/logs/<id>.last-work` (`0` when missing).
    - No background session and no meeting runs on the ticket.
 
 ### Runtime files
 
-Tools coordinate background and interactive sessions through `.agent-office/logs/`:
+Tools coordinate background and interactive sessions through `.tarokaja/logs/`:
 
 | Path | Format | Purpose |
 |---|---|---|
@@ -248,14 +248,14 @@ Tools coordinate background and interactive sessions through `.agent-office/logs
 
 ## Add-ons
 
-- `ADDONS` in `.agent-office/config` lists enabled add-on folder names in `.agent-office/addons/`, separated by `,`.
+- `ADDONS` in `.tarokaja/config` lists enabled add-on folder names in `.tarokaja/addons/`, separated by `,`.
 - When `ADDONS` is empty, tools send no events, and `meeting.sh` replaces its shell with `exec`.
-- For each name in `ADDONS`, tools run `.agent-office/addons/<name>/on_event <EVENT> <ID> <REF>` with standard streams redirected to `/dev/null`.
+- For each name in `ADDONS`, tools run `.tarokaja/addons/<name>/on_event <EVENT> <ID> <REF>` with standard streams redirected to `/dev/null`.
 - A missing or failing `on_event` never stops the caller.
 
 | Event | `<ID>` | `<REF>` | Trigger | Note |
 |---|---|---|---|---|
-| `session_start` | `<id>` | `bg` | Before a background `work` or `prep` session starts | Background sessions export `AO_HEADLESS=1`. |
+| `session_start` | `<id>` | `bg` | Before a background `work` or `prep` session starts | Background sessions export `TK_HEADLESS=1`. |
 | `session_tick` | `<id>` | `bg` | Every 60 seconds while a background session runs | Stops when the session or parent script exits. |
 | `session_end` | `<id>` | `bg` | After a background `work` or `prep` session ends | Sent after the script removes `<id>.pid` and `<id>.kind`. |
 | `meeting_start` | `<id>` | `<pid>` | Before an interactive `meeting.sh` session starts | `<pid>` is the `meeting.sh` PID in `<id>.meeting.pid`. |
@@ -266,11 +266,11 @@ Tools coordinate background and interactive sessions through `.agent-office/logs
 | Add-on | Files and settings | Behavior | Note |
 |---|---|---|---|
 | `timelog` | • `addons/timelog/on_event` <br>• `addons/timelog/timelog.py` <br>• `logs/time/<id>.jsonl` <br>• `logs/status/<id>.jsonl` | • Maps `session_start`, `session_tick`, and `session_end` to `agent_start`, `agent_tick`, and `agent_end` (`ref` = `bg`). <br>• Maps `meeting_start`, `meeting_tick`, and `meeting_end` to `seat_start`, `ping`, and `seat_end` (`ref` = `<pid>`). <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<id>`. <br>• Writes a table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW`) in `Daily/YYYY-MM-DD.md` for the last 7 days. It replaces only that section. It never creates a missing note. <br>• Records status changes in `logs/status/<id>.jsonl` on `tick`. <br>• `timelog.py week` prints this week's time per ticket (`R` in the TUI). | • Merges overlapping intervals of one kind. <br>• A gap of more than 900 seconds between two events cuts the interval at the earlier event. <br>• An interval without an end event ends at the current time when its last event is 900 seconds old or less. Otherwise it ends at its last event. |
-| `session` | • `addons/session/install.py` <br>• `addons/session/hook.py` <br>• `<VAULT>/.claude/settings.json` <br>• `logs/sessions/<sid>.json` | • `install.py <VAULT>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT>/.claude/settings.json`, never to `~/.claude`, and backs up an existing file. <br>• `install.py <VAULT> --remove` removes only its hooks. <br>• When `meeting.sh` sets `AO_TICKET` and leaves `AO_HEADLESS` empty, `hook.py` writes `session: <sid>` in the ticket frontmatter and writes `logs/sessions/<sid>.json`. <br>• The next `meeting.sh` passes `--resume <sid>` to `claude` when `~/.claude/projects/*/<sid>.jsonl` exists. <br>• With `timelog` in `ADDONS`, `hook.py` also logs `agent_start`, `agent_tick` (at most once per 60 s), and `agent_end` with `ref` = `<sid>`. | Claude Code (`AGENT_CLI=claude`) only. |
+| `session` | • `addons/session/install.py` <br>• `addons/session/hook.py` <br>• `<VAULT>/.claude/settings.json` <br>• `logs/sessions/<sid>.json` | • `install.py <VAULT>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT>/.claude/settings.json`, never to `~/.claude`, and backs up an existing file. <br>• `install.py <VAULT> --remove` removes only its hooks. <br>• When `meeting.sh` sets `TK_TICKET` and leaves `TK_HEADLESS` empty, `hook.py` writes `session: <sid>` in the ticket frontmatter and writes `logs/sessions/<sid>.json`. <br>• The next `meeting.sh` passes `--resume <sid>` to `claude` when `~/.claude/projects/*/<sid>.jsonl` exists. <br>• With `timelog` in `ADDONS`, `hook.py` also logs `agent_start`, `agent_tick` (at most once per 60 s), and `agent_end` with `ref` = `<sid>`. | Claude Code (`AGENT_CLI=claude`) only. |
 
 ## Conformance
 
-An implementation conforms to the Agent Office v0.1 protocol when it satisfies all items below:
+An implementation conforms to the Tarokaja v0.1 protocol when it satisfies all items below:
 
 1. Preserves the vault paths in [Vault layout](#vault-layout) and never reads or writes `private/`, `.obsidian/`, or `.trash/`.
 2. Reads and writes ticket frontmatter and body sections as defined in [Ticket format](#ticket-format), sets `updated` to `YYYY-MM-DD` on every write, and never deletes a ticket file.

@@ -1,8 +1,8 @@
-# Agent Office rules
+# Tarokaja rules
 
 This vault is an office. The user is the **manager**. You are a **team member**. The manager delegates tasks to you on tickets. The manager does not watch you work. The manager meets with you to hear your report, make decisions, and accept work.
 
-These rules apply to every agent CLI (Claude Code, Codex, Antigravity, Gemini CLI). `PROTOCOL.md` in the Agent Office repo defines the same data format for people who build tools.
+These rules apply to every agent CLI (Claude Code, Codex, Antigravity, Gemini CLI). `PROTOCOL.md` in the Tarokaja repo defines the same data format for people who build tools.
 
 ## Vault layout
 
@@ -13,7 +13,7 @@ These rules apply to every agent CLI (Claude Code, Codex, Antigravity, Gemini CL
 | `Daily/YYYY-MM-DD.md` | Daily note |
 | `Office/meetings/` | Meeting agendas |
 | `Office/outputs/<ticket ID>/` | Your work output, as notes |
-| `.agent-office/` | Scripts and config. Do not edit. |
+| `.tarokaja/` | Scripts and config. Do not edit. |
 
 ## What you may touch
 

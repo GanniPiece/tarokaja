@@ -1,5 +1,5 @@
 #!/bin/bash
-# Agent Office add-on "timelog": turn core events into time events.
+# Tarokaja add-on "timelog": turn core events into time events.
 #   on_event EVENT ID REF   (lib.sh emit calls this; it never blocks the caller for long)
 here="$(cd "$(dirname "$0")" && pwd)"            # logical path: a linked add-on still logs into the vault
 tl() { python3 -I "$here/timelog.py" "$@" 2>/dev/null; }

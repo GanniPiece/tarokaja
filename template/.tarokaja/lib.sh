@@ -1,26 +1,26 @@
-# Shared helpers for Agent Office scripts. Source this file. Do not run it.
+# Shared helpers for Tarokaja scripts. Source this file. Do not run it.
 # Compatible with bash 3.2 (macOS /bin/bash).
 
-AO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VAULT="$(cd "$AO_DIR/.." && pwd)"
-LOG_DIR="$AO_DIR/logs"
+TK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VAULT="$(cd "$TK_DIR/.." && pwd)"
+LOG_DIR="$TK_DIR/logs"
 TICKETS="$VAULT/Tickets"
 mkdir -p "$LOG_DIR"
 
-# Settings come from, in this order: the environment, .agent-office/config,
-# the language profile (.agent-office/profiles/<AO_LANG>.conf), then the default.
+# Settings come from, in this order: the environment, .tarokaja/config,
+# the language profile (.tarokaja/profiles/<TK_LANG>.conf), then the default.
 _conf() { # _conf FILE KEY -> the last value of KEY in FILE
   [ -f "$1" ] && sed -n "s/^$2=//p" "$1" | tail -n 1
 }
 cfg() { # cfg KEY DEFAULT
   local v=""
   eval "v=\"\${$1:-}\""
-  [ -n "$v" ] || v="$(_conf "$AO_DIR/config" "$1")"
-  [ -n "$v" ] || [ "$1" = AO_LANG ] || v="$(_conf "$AO_DIR/profiles/$AO_LANG.conf" "$1")"
+  [ -n "$v" ] || v="$(_conf "$TK_DIR/config" "$1")"
+  [ -n "$v" ] || [ "$1" = TK_LANG ] || v="$(_conf "$TK_DIR/profiles/$TK_LANG.conf" "$1")"
   echo "${v:-$2}"
 }
-AO_LANG="$(cfg AO_LANG en)"
-case "$AO_LANG" in en|zh-TW) ;; *) AO_LANG=en ;; esac
+TK_LANG="$(cfg TK_LANG en)"
+case "$TK_LANG" in en|zh-TW) ;; *) TK_LANG=en ;; esac
 AGENT_CLI="$(cfg AGENT_CLI claude)"
 MEETINGS="$(cfg MEETINGS_DIR Office/meetings)"
 OUTPUTS="$(cfg OUTPUTS_DIR Office/outputs)"
@@ -60,8 +60,8 @@ emit() { # emit EVENT ID REF: run addons/<name>/on_event for each enabled add-on
   local a IFS=,
   for a in $ADDONS; do
     case "$a" in ""|*[!A-Za-z0-9_-]*) continue ;; esac
-    [ -x "$AO_DIR/addons/$a/on_event" ] || continue
-    "$AO_DIR/addons/$a/on_event" "$@" > /dev/null 2>&1 < /dev/null || true
+    [ -x "$TK_DIR/addons/$a/on_event" ] || continue
+    "$TK_DIR/addons/$a/on_event" "$@" > /dev/null 2>&1 < /dev/null || true
   done
   return 0
 }
@@ -127,14 +127,14 @@ require_agent() {
     claude|codex|gemini|agy) ;;
     *) echo "AGENT_CLI must be claude, codex, gemini, or agy (now: $AGENT_CLI)" >&2; exit 1 ;;
   esac
-  command -v "$AGENT_CLI" >/dev/null 2>&1 || { log "$AGENT_CLI not found"; echo "Cannot find the $AGENT_CLI command. Install it or change AGENT_CLI in .agent-office/config." >&2; exit 1; }
+  command -v "$AGENT_CLI" >/dev/null 2>&1 || { log "$AGENT_CLI not found"; echo "Cannot find the $AGENT_CLI command. Install it or change AGENT_CLI in .tarokaja/config." >&2; exit 1; }
 }
 
 # Claude Code: the tools a background session may use. Other agents rely on their own sandbox and on AGENTS.md.
 CLAUDE_TOOLS="Read,Edit,Write,Glob,Grep,WebSearch,WebFetch"
 CLAUDE_DIR_TOOLS="Bash(git:*),Bash(uv:*),Bash(python3:*),Bash(ls:*)"
 # Edit rules cover all file-editing tools (Claude Code ignores Write(path) deny rules).
-CLAUDE_DENIED="Read(./private/**),Edit(./private/**),Read(./.obsidian/**),Edit(./.obsidian/**),Read(./.trash/**),Edit(./.trash/**),Edit(./.agent-office/**)"
+CLAUDE_DENIED="Read(./private/**),Edit(./private/**),Read(./.obsidian/**),Edit(./.obsidian/**),Read(./.trash/**),Edit(./.trash/**),Edit(./.tarokaja/**)"
 
 stream_result() { # stream_result STREAM: the result text of the last "result" event in a stream-json log
   python3 -I -c 'import json,sys
@@ -197,7 +197,7 @@ run_bg_session() { # run_bg_session ID KIND PROMPT [AGENT_DIR]: run, keep a pid 
   local rc
   echo "$$" > "$LOG_DIR/$id.pid"
   echo "$kind" > "$LOG_DIR/$id.kind"
-  export AO_HEADLESS=1   # add-on hooks inside the agent see a background session, not the manager
+  export TK_HEADLESS=1   # add-on hooks inside the agent see a background session, not the manager
   emit session_start "$id" bg
   start_ticker session_tick "$id" bg
   agent_headless "$prompt" "$out" "$dir" "$LOG_DIR/$id-stream.jsonl"
@@ -209,24 +209,24 @@ run_bg_session() { # run_bg_session ID KIND PROMPT [AGENT_DIR]: run, keep a pid 
 }
 
 with_lock() { # with_lock NAME CMD...: skip when the same ticket already runs
-  AO_LOCK="$LOG_DIR/$1.lock"; shift
-  if ! mkdir "$AO_LOCK" 2>/dev/null; then
-    local owner age; owner="$(cat "$AO_LOCK/pid" 2>/dev/null)"
+  TK_LOCK="$LOG_DIR/$1.lock"; shift
+  if ! mkdir "$TK_LOCK" 2>/dev/null; then
+    local owner age; owner="$(cat "$TK_LOCK/pid" 2>/dev/null)"
     if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
-      log "skip: $AO_LOCK is held by pid $owner"
+      log "skip: $TK_LOCK is held by pid $owner"
       return 0
     fi
-    age=$(( $(date +%s) - $(stat -f %m "$AO_LOCK" 2>/dev/null || date +%s) ))
+    age=$(( $(date +%s) - $(stat -f %m "$TK_LOCK" 2>/dev/null || date +%s) ))
     if [ -z "$owner" ] && [ "$age" -lt 60 ]; then   # another process made the lock and writes its pid now
-      log "skip: $AO_LOCK is new"
+      log "skip: $TK_LOCK is new"
       return 0
     fi
-    log "remove stale lock $AO_LOCK (pid ${owner:-none})"   # left by a crash, kill, or reboot
-    rm -rf "$AO_LOCK"
-    mkdir "$AO_LOCK" 2>/dev/null || { log "skip: $AO_LOCK"; return 0; }
+    log "remove stale lock $TK_LOCK (pid ${owner:-none})"   # left by a crash, kill, or reboot
+    rm -rf "$TK_LOCK"
+    mkdir "$TK_LOCK" 2>/dev/null || { log "skip: $TK_LOCK"; return 0; }
   fi
-  echo "$$" > "$AO_LOCK/pid"
-  trap 'rm -rf "$AO_LOCK"' EXIT
+  echo "$$" > "$TK_LOCK/pid"
+  trap 'rm -rf "$TK_LOCK"' EXIT
   "$@"
 }
 
