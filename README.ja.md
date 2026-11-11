@@ -15,10 +15,18 @@ English: [README.md](README.md)
   - ツール開発者向けのデータ形式と状態遷移の仕様：[PROTOCOL.md](PROTOCOL.md)
   - Vault 内の agent セッションのルール：[locale/en/AGENTS.md](locale/en/AGENTS.md)（`zh-TW`：[locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md)、`ja`：[locale/ja/AGENTS.md](locale/ja/AGENTS.md)）
 
+![Tarokaja の会議：agent が T-002 を報告し、決定待ち D1 を聞き、答えをチケットに書き戻す](docs/demo/meeting.gif)
+
 ![Tarokaja の TUI：ボード、決定待ちのチケット、作業セッションの開始、今週の時間](docs/demo/demo.gif)
 
-- デモはサンプルのチケット（[docs/demo/make-vault.sh](docs/demo/make-vault.sh)）と、agent CLI の代役を使っています。
-- 録画し直すには、repo のルートで `vhs docs/demo/demo.tape` を実行します。[VHS](https://github.com/charmbracelet/vhs) が必要です。
+| Demo | Agent | 録画し直す（repo のルートで） |
+|---|---|---|
+| 会議（1 つ目の GIF） | 本物の Claude Code セッション（Sonnet） | 1. `~/tarokaja-demo` で `claude` を 1 回実行し、「Yes, I trust this folder」を選ぶ。<br>2. `python3 docs/demo/record-meeting.py`<br>3. [docs/demo/record-meeting.py](docs/demo/record-meeting.py) の先頭にある `agg` コマンドを実行する。 |
+| TUI の紹介（2 つ目の GIF） | 代役のスクリプト、AI なし | `vhs docs/demo/demo.tape` |
+
+- どちらのデモもサンプルのチケット（[docs/demo/make-vault.sh](docs/demo/make-vault.sh)）を使います。
+- TUI の紹介には [VHS](https://github.com/charmbracelet/vhs) が必要です。会議には [agg](https://github.com/asciinema/agg) と `pip install pyte` が必要です。
+- 会議のデモはあなたの Claude のログインと少しの token を使います。ラッパー [docs/demo/bin-meeting/claude](docs/demo/bin-meeting/claude) はあなたのユーザー設定を読み込まず、AskUserQuestion と Bash を無効にします。そのためスクリプトが答えを入力できます。
 
 ## Tarokaja を選ぶ理由
 

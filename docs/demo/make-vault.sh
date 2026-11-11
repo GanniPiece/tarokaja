@@ -55,6 +55,26 @@ ticket("T-005", "Move old photos to the NAS", "inbox", "Home", ["## Done when", 
 ticket("T-006", "Learn the basics of Rust", "backlog", "Learning", ["## Done when", "", "", "## Subtasks", "", "## Decisions", "", "## Breadcrumbs", ""])
 ticket("T-007", "Fix the office printer", "done", "Work", ["## Done when", "", "The printer prints.", "", "## Subtasks", "", "## Decisions", "", "## Breadcrumbs", ""])
 
+def note(path, lines):
+    path = os.path.join(v, path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+note("Office/outputs/T-002/venues.md", ["# Venues for the team offsite", "",
+    "| Venue | Travel | Outdoor space | Price per person |", "|---|---|---|---|",
+    "| Lake house | 2 hours by train | Garden and lake | 120 |",
+    "| City loft | 15 minutes on foot | None | 90 |",
+    "| Hill hotel | 1 hour by bus | Terrace | 150 |", "",
+    "- The team survey: 9 of 12 people asked for a day outside."])
+note("Office/meetings/%s 1000 T-002.md" % d(1), ["---", 'ticket: "[[T-002 Plan the team offsite]]"', "meeting: %s 10:00" % d(1), "---",
+    "# T-002 meeting", "", "## Progress since the last meeting", "", "- Compared three venues near the office.", "",
+    "## Evidence", "", "- [[Office/outputs/T-002/venues]]", "", "## Open decisions", "", "- D1 Which venue?", "",
+    "## Risks and blockers", "", "- The lake house needs a booking two weeks ahead.", "",
+    "## Plan for the next stage", "", "- Draft the agenda after D1.", "", "## Outcomes", ""])
+note("Office/outputs/T-001/specs.md", ["# NAS specs", "", "| Model | Price | Noise |", "|---|---|---|", "| A | 420 | 19 dB |", "| B | 380 | 22 dB |"])
+note("Office/outputs/T-003/release-notes.md", ["# Release notes v1.2", "", "- Faster sync.", "- Fix: the export skips empty notes."])
+
 logs = os.path.join(v, ".tarokaja", "logs")
 os.makedirs(logs, exist_ok=True)
 with open(os.path.join(logs, "T-001-last-work.txt"), "w") as f:

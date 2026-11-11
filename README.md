@@ -14,10 +14,18 @@
   - Data format and state machine specification for tool authors: [PROTOCOL.md](PROTOCOL.md)
   - Agent session rules inside a vault: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md), `ja`: [locale/ja/AGENTS.md](locale/ja/AGENTS.md))
 
+![A meeting in Tarokaja: the agent reports on T-002, asks for decision D1, and writes the answer back to the ticket](docs/demo/meeting.gif)
+
 ![Tarokaja TUI: the board, a ticket that waits for your decision, a work session that starts, and this week's time](docs/demo/demo.gif)
 
-- The demo uses sample tickets from [docs/demo/make-vault.sh](docs/demo/make-vault.sh) and a stand-in for the agent CLI.
-- To record it again: `vhs docs/demo/demo.tape`, from the repo root. Needs [VHS](https://github.com/charmbracelet/vhs).
+| Demo | Agent | Record again (from the repo root) |
+|---|---|---|
+| Meeting (first GIF) | Real Claude Code session (Sonnet) | 1. Run `claude` once in `~/tarokaja-demo` and answer "Yes, I trust this folder".<br>2. `python3 docs/demo/record-meeting.py`<br>3. Run the `agg` command at the top of [docs/demo/record-meeting.py](docs/demo/record-meeting.py). |
+| TUI tour (second GIF) | Stand-in script, no AI | `vhs docs/demo/demo.tape` |
+
+- Both demos use sample tickets from [docs/demo/make-vault.sh](docs/demo/make-vault.sh).
+- The TUI tour needs [VHS](https://github.com/charmbracelet/vhs). The meeting needs [agg](https://github.com/asciinema/agg) and `pip install pyte`.
+- The meeting demo uses your Claude login and a few tokens. Its wrapper [docs/demo/bin-meeting/claude](docs/demo/bin-meeting/claude) skips your user settings, and it turns off AskUserQuestion and Bash, so the script can type the answers.
 
 ## Why Tarokaja
 
