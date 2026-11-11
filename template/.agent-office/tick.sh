@@ -57,3 +57,5 @@ for f in "$TICKETS/"T-*.md; do
   session_running "$id" && continue
   start work.sh "$id"
 done
+
+emit tick - -   # add-ons: once per run

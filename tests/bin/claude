@@ -6,6 +6,8 @@ if [ -n "${STUB_AGENT_LOG:-}" ]; then
   {
     printf 'CMD: %s\n' "$cmd"
     printf 'ARGS: %s\n' "$*"
+    [ -n "${AO_TICKET:-}" ] && printf 'AO_TICKET: %s\n' "$AO_TICKET"
+    [ -n "${AO_HEADLESS:-}" ] && printf 'AO_HEADLESS: %s\n' "$AO_HEADLESS"
     for arg in "$@"; do
       printf 'ARG: %s\n' "$arg"
     done

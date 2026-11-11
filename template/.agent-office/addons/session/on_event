@@ -1,0 +1,3 @@
+#!/bin/bash
+# Agent Office add-on "session": no core event needs work here. The Claude Code hook (hook.py) does the work.
+exit 0

@@ -1,0 +1,15 @@
+#!/bin/bash
+# Agent Office add-on "timelog": turn core events into time events.
+#   on_event EVENT ID REF   (lib.sh emit calls this; it never blocks the caller for long)
+here="$(cd "$(dirname "$0")" && pwd)"            # logical path: a linked add-on still logs into the vault
+tl() { python3 -I "$here/timelog.py" "$@" 2>/dev/null; }
+case "$1" in
+  session_start) tl add "$2" agent_start "${3:-bg}" ;;
+  session_tick)  tl add "$2" agent_tick "${3:-bg}" ;;
+  session_end)   tl add "$2" agent_end "${3:-bg}"; tl sync ;;
+  meeting_start) tl add "$2" seat_start "$3" ;;
+  meeting_tick)  tl add "$2" ping "$3" ;;
+  meeting_end)   tl add "$2" seat_end "$3"; tl sync ;;
+  tick)          tl status; tl sync ;;
+esac
+exit 0

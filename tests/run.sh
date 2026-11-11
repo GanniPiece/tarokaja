@@ -29,9 +29,9 @@ run_test() {
     : > "$STUB_AGENT_LOG"
     : > "$STUB_NOTIFY_LOG"
 
-    unset AGENT_CLI WORK_EVERY_HOURS WORK_HOURS_FROM WORK_HOURS_TO PREP_BEFORE_MIN REMIND_BEFORE_MIN AO_NOW AO_HOUR
+    unset AGENT_CLI WORK_EVERY_HOURS WORK_HOURS_FROM WORK_HOURS_TO PREP_BEFORE_MIN REMIND_BEFORE_MIN AO_NOW AO_HOUR ADDONS AO_TICKET AO_HEADLESS
     # Profile keys: a developer's shell must not change the results
-    unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
+    unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS H_TIME MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
       MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK WRITE_LANG AGENT_DIR_ROOTS AO_LANG MEETINGS_DIR OUTPUTS_DIR RULES_FILE
 
     VAULT="$test_tmp/vault"
@@ -758,6 +758,145 @@ test_stream_error_result() {
   grep -q 'auth failed' "$VAULT/.agent-office/logs/T-001-last-work.txt"
 }
 
+# ---------------------------------------------------------------------------
+# 6. Add-on tests (Specs A-E)
+# ---------------------------------------------------------------------------
+
+test_a_addon_mechanism() {
+  grep -q '^ADDONS=$' "$VAULT/.agent-office/config"
+  ( . "$VAULT/.agent-office/lib.sh"; type emit >/dev/null 2>&1 )
+
+  local fake_log="$VAULT/.agent-office/logs/fake-events.log"
+  mkdir -p "$VAULT/.agent-office/addons/fake"
+  cat > "$VAULT/.agent-office/addons/fake/on_event" <<EOF
+#!/bin/bash
+echo "\$1 \$2 \$3" >> "$fake_log"
+EOF
+  chmod +x "$VAULT/.agent-office/addons/fake/on_event"
+
+  # With ADDONS empty nothing is called
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  if [ -s "$fake_log" ]; then return 1; fi
+
+  # With ADDONS=fake: work.sh emits session_start T-001 bg then session_end T-001 bg
+  sed -i '' 's/^ADDONS=.*/ADDONS=fake/' "$VAULT/.agent-office/config"
+  : > "$fake_log"
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  [ "$(sed -n '1p' "$fake_log")" = "session_start T-001 bg" ]
+  [ "$(tail -n 1 "$fake_log")" = "session_end T-001 bg" ]
+
+  # tick.sh (AO_HOUR=22 so no work starts) emits tick - -
+  : > "$fake_log"
+  AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  [ "$(cat "$fake_log")" = "tick - -" ]
+
+  # meeting.sh emits meeting_start ID <pid> before the agent and meeting_end ID <pid> after it exits
+  : > "$fake_log"
+  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
+  local m_start m_end m_pid
+  m_start="$(sed -n '1p' "$fake_log")"
+  m_end="$(sed -n '2p' "$fake_log")"
+  m_pid="${m_start#meeting_start T-001 }"
+  [ -n "$m_pid" ]
+  case "$m_pid" in *[!0-9]*) return 1 ;; esac
+  [ "$m_start" = "meeting_start T-001 $m_pid" ]
+  [ "$m_end" = "meeting_end T-001 $m_pid" ]
+
+  # An on_event that exits 1 (or a missing add-on) does not make work.sh fail
+  sed -i '' 's/^ADDONS=.*/ADDONS=missing,fake/' "$VAULT/.agent-office/config"
+  printf '#!/bin/bash\nexit 1\n' > "$VAULT/.agent-office/addons/fake/on_event"
+  chmod +x "$VAULT/.agent-office/addons/fake/on_event"
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+}
+
+test_b_install_addons() {
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog,session >/dev/null
+  grep -q '^ADDONS=timelog,session$' "$VAULT/.agent-office/config"
+
+  [ -d "$VAULT/.agent-office/addons/timelog" ]
+  [ -x "$VAULT/.agent-office/addons/timelog/on_event" ]
+  [ -f "$VAULT/.agent-office/addons/timelog/timelog.py" ]
+  [ -d "$VAULT/.agent-office/addons/session" ]
+  [ -f "$VAULT/.agent-office/addons/session/hook.py" ]
+  [ -f "$VAULT/.agent-office/addons/session/install.py" ]
+
+  # session install.py adds hook to VAULT/.claude/settings.json (never ~/.claude)
+  [ -f "$VAULT/.claude/settings.json" ]
+  grep -q 'hook.py' "$VAULT/.claude/settings.json"
+  if [ -e "$HOME/.claude/settings.json" ]; then return 1; fi
+
+  # Reinstall without --addons keeps ADDONS
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" >/dev/null
+  grep -q '^ADDONS=timelog,session$' "$VAULT/.agent-office/config"
+
+  # With --link, the addons folder is a symlink into the repo
+  local v_link="$VAULT-link"
+  /bin/bash "$REPO_DIR/install.sh" "$v_link" --link --addons timelog,session >/dev/null
+  [ -L "$v_link/.agent-office/addons" ]
+  case "$(readlink "$v_link/.agent-office/addons")" in
+    *"template/.agent-office/addons") ;;
+    *) return 1 ;;
+  esac
+
+  # An unknown add-on name (or missing --addons value) exits 2
+  local rc=0
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT-bad1" --addons unknown >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ]
+  rc=0
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT-bad2" --addons timelog,unknown >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ]
+  rc=0
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT-bad3" --addons >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ]
+}
+
+test_c_timelog() {
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog >/dev/null
+  ( unset AO_LANG H_TIME; . "$VAULT/.agent-office/lib.sh"; [ "$(cfg H_TIME fallback)" = "## Time" ] )
+  ( unset H_TIME; AO_LANG=zh-TW; . "$VAULT/.agent-office/lib.sh"; [ "$(cfg H_TIME fallback)" = "## 時間" ] )
+
+  python3 -I "$TESTS_DIR/test_c_timelog.py" "$VAULT"
+}
+
+test_d_session() {
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog,session >/dev/null
+  python3 -I "$TESTS_DIR/test_d_session.py" "$VAULT"
+
+  # T-001 has session: sess-0002-bbbb from test_d_session.py, but no transcript file yet -> no --resume
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
+  grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
+  grep -q '^AO_TICKET: T-001$' "$STUB_AGENT_LOG"
+  if grep -q '^ARG: --resume$' "$STUB_AGENT_LOG"; then return 1; fi
+
+  # When ~/.claude/projects/*/<sid>.jsonl exists -> meeting.sh calls claude with --resume <sid>
+  mkdir -p "$HOME/.claude/projects/vault-proj"
+  : > "$HOME/.claude/projects/vault-proj/sess-0002-bbbb.jsonl"
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
+  grep -q '^AO_TICKET: T-001$' "$STUB_AGENT_LOG"
+  grep -q '^ARG: --resume$' "$STUB_AGENT_LOG"
+  grep -q '^ARG: sess-0002-bbbb$' "$STUB_AGENT_LOG"
+
+  # When ticket has no session -> no --resume even if transcript files exist
+  sed -i '' 's/^session: .*/session:/' "$VAULT/Tickets/T-001 Try Agent Office.md"
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
+  grep -q '^AO_TICKET: T-001$' "$STUB_AGENT_LOG"
+  if grep -q '^ARG: --resume$' "$STUB_AGENT_LOG"; then return 1; fi
+
+  # Background sessions export AO_HEADLESS=1
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  grep -q '^AO_HEADLESS: 1$' "$STUB_AGENT_LOG"
+}
+
+test_e_tui_week_report() {
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog >/dev/null
+  python3 -I "$TESTS_DIR/test_e_tui.py" "$VAULT"
+}
+
 run_test "install.sh --lang on an old config, --link twice" test_lang_on_old_config_and_relink
 run_test "stream-json error result and stderr fallback" test_stream_error_result
 run_test "tui.py draws the screen and quits in en and zh-TW" test_tui_screen_both_languages
@@ -785,6 +924,11 @@ run_test "install.sh --lang en|zh-TW layout, reinstall, and bad args" test_insta
 run_test "install.sh --link symlinks, .bak backups, and vault log path" test_install_link_flag
 run_test "work.sh claude stream-json output and result extraction" test_work_claude_stream_json
 run_test "tui.py with AO_LANG=zh-TW and --print" test_tui_zh_profile
+run_test "A: add-on mechanism and core events" test_a_addon_mechanism
+run_test "B: install.sh --addons flag, link, and session hook" test_b_install_addons
+run_test "C: timelog add-on events, sync, Daily table, status history, and week" test_c_timelog
+run_test "D: session add-on hook, install.py, meeting resume, and headless" test_d_session
+run_test "E: tui.py week_report_lines with timelog on and off" test_e_tui_week_report
 
 echo ""
 echo "Summary: $PASS_COUNT passed, $FAIL_COUNT failed"

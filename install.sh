@@ -1,31 +1,41 @@
 #!/bin/bash
-# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--link] [--schedule]
+# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--link] [--schedule]
 #
 # Copies the Agent Office template into VAULT_DIR. VAULT_DIR can be a new folder or an
 # existing Obsidian vault. Files that exist already are never overwritten.
 #   --agent     the agent CLI for all sessions (Default: claude)
 #   --lang      the language profile: ticket headings, markers, folders, rules (Default: en)
+#   --addons    the add-ons to turn on, separated by "," (timelog, session). Writes ADDONS in config.
+#               session adds Claude Code hooks to VAULT_DIR/.claude/settings.json.
 #   --link      link the scripts to this repo instead of copying them, so the vault runs
 #               the repo's code (for development). config and logs stay in the vault.
 #   --schedule  install the launchd job that runs .agent-office/tick.sh every 5 minutes
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-vault="" agent="" lang="" link=0 schedule=0
+vault="" agent="" lang="" addons="" set_addons=0 link=0 schedule=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --agent) [ $# -ge 2 ] || { echo "--agent needs a value" >&2; exit 2; }; agent="$2"; shift 2 ;;
     --agent=*) agent="${1#--agent=}"; shift ;;
     --lang) [ $# -ge 2 ] || { echo "--lang needs a value" >&2; exit 2; }; lang="$2"; shift 2 ;;
     --lang=*) lang="${1#--lang=}"; shift ;;
+    --addons) [ $# -ge 2 ] && [ -n "$2" ] || { echo "--addons needs a value" >&2; exit 2; }; addons="$2"; set_addons=1; shift 2 ;;
+    --addons=*) addons="${1#--addons=}"; [ -n "$addons" ] || { echo "--addons needs a value" >&2; exit 2; }; set_addons=1; shift ;;
     --link) link=1; shift ;;
     --schedule) schedule=1; shift ;;
-    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "Unknown option: $1" >&2; exit 2 ;;
     *) vault="$1"; shift ;;
   esac
 done
-[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--link] [--schedule]" >&2; exit 2; }
+[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--addons timelog,session] [--link] [--schedule]" >&2; exit 2; }
+if [ "$set_addons" = 1 ]; then
+  case "$addons" in *[!A-Za-z0-9_,-]*) echo "--addons takes names separated by \",\", such as timelog,session" >&2; exit 2 ;; esac
+  for a in $(echo "$addons" | tr ',' ' '); do
+    [ -d "$HERE/template/.agent-office/addons/$a" ] || { echo "Unknown add-on: $a (use timelog, session)" >&2; exit 2; }
+  done
+fi
 case "${lang:-en}" in en|zh-TW) ;; *) echo "--lang must be en or zh-TW" >&2; exit 2 ;; esac
 case "${agent:-claude}" in claude|codex|agy|gemini) ;; *) echo "--agent must be claude, codex, agy, or gemini" >&2; exit 2 ;; esac
 
@@ -58,9 +68,18 @@ else
 fi
 ok "language profile: $lang"
 
+if [ "$set_addons" = 1 ]; then
+  if grep -q '^ADDONS=' "$vault/.agent-office/config"; then
+    sed -i '' "s/^ADDONS=.*/ADDONS=$addons/" "$vault/.agent-office/config"
+  else
+    printf '\n# Add-ons, separated by ","\nADDONS=%s\n' "$addons" >> "$vault/.agent-office/config"
+  fi
+fi
+ok "add-ons: $(sed -n 's/^ADDONS=//p' "$vault/.agent-office/config" | tail -n 1)"
+
 if [ "$link" = 1 ]; then
   # Replace the scripts and profiles with links to this repo. config and logs stay in the vault.
-  for name in lib.sh work.sh prep.sh meeting.sh tick.sh tui.py profiles; do
+  for name in lib.sh work.sh prep.sh meeting.sh tick.sh tui.py profiles addons; do
     dst="$vault/.agent-office/$name"
     src="$HERE/template/.agent-office/$name"
     if [ -L "$dst" ]; then rm -f "$dst"
@@ -71,9 +90,22 @@ if [ "$link" = 1 ]; then
   ok "scripts linked to $HERE/template/.agent-office"
 fi
 # chmod follows symlinks, so only change the modes of copied scripts, never the repo's files.
-for f in "$vault/.agent-office/"*.sh "$vault/.agent-office/tui.py"; do
-  [ -L "$f" ] || chmod +x "$f"
+for f in "$vault/.agent-office/"*.sh "$vault/.agent-office/tui.py" "$vault/.agent-office/addons/"*/on_event; do
+  case "$f" in "$vault/.agent-office/addons/"*) [ -L "$vault/.agent-office/addons" ] && continue ;; esac
+  [ -L "$f" ] || chmod +x "$f" 2>/dev/null
 done
+if [ "$set_addons" = 1 ]; then
+  # The session add-on hooks live in the vault's project settings, never in ~/.claude.
+  case ",$addons," in
+    *,session,*)
+      if python3 -I "$vault/.agent-office/addons/session/install.py" "$vault"; then ok "session hooks in $vault/.claude/settings.json"
+      else warn "could not add the session hooks to $vault/.claude/settings.json"; fi ;;
+    *)
+      if [ -f "$vault/.claude/settings.json" ] && ! python3 -I "$vault/.agent-office/addons/session/install.py" "$vault" --remove; then
+        warn "could not remove the session hooks from $vault/.claude/settings.json"
+      fi ;;
+  esac
+fi
 
 today="$(date +%F)"
 for t1 in "$vault/Tickets/T-001 "*.md; do :; done   # the example ticket of the language

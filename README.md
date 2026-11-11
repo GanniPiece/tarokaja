@@ -4,6 +4,7 @@
 |---|---|---|---|
 | 0.1 | 2026-11-11 | GanniPiece | First version |
 | 0.2 | 2026-11-11 | GanniPiece | Language profiles (`en`, `zh-TW`), `install.sh --lang` and `--link`, stream-json log for Claude Code |
+| 0.3 | 2026-11-11 | GanniPiece | Add-ons: timelog and session |
 
 - Agent Office runs an AI agent as a team member inside an Obsidian vault on macOS.
 - Tickets are plain Markdown notes, work covers notes and research in addition to code, and only the manager closes a ticket.
@@ -62,6 +63,7 @@ flowchart LR
 | `VAULT_DIR` | | • Target folder path. <br>• Existing files in the folder stay untouched. |
 | `--agent <cli>` | `claude` | • **Optional.** <br>• Sets `AGENT_CLI` in `.agent-office/config` to `claude`, `codex`, `agy`, or `gemini`. |
 | `--lang <lang>` | `en` | • **Optional.**<br>• Sets the language profile: `en` or `zh-TW`. See [Language profiles](#language-profiles).<br>• A reinstall without `--lang` keeps the language in `config`. |
+| `--addons <list>` | Empty | • **Optional.** <br>• Sets `ADDONS` in `.agent-office/config` to comma-separated add-on names (`timelog`, `session`), described in [Add-ons](#add-ons). <br>• A reinstall without `--addons` keeps `ADDONS` in `config`. <br>• An unknown add-on name exits with status `2`. |
 | `--link` | Off | • **Optional.**<br>• Links the scripts to this repo instead of copying them. See [Development](#development). |
 | `--schedule` | Off | • **Optional.** <br>• Loads the `launchd` job `local.agent-office.tick` to run `.agent-office/tick.sh` every 5 minutes. |
 
@@ -104,6 +106,7 @@ flowchart LR
 | `n` | Create a new ticket in `Tickets/` with `status: inbox`. | Uses the selected project, or `Other` from `Needs me` and `All open`. |
 | `o` | Open the selected ticket in Obsidian. | Uses the `obsidian://open` URL scheme. |
 | `r` | Reload all tickets from disk. | Polls automatically every 3 seconds when files change. |
+| `R` | Show this week's time per ticket (`timelog.py week`). | Requires `timelog` in `ADDONS`. |
 | `?` | Toggle the help overlay. | |
 | `q` / `Q` | Quit the TUI. | |
 
@@ -131,6 +134,28 @@ The scripts read `.agent-office/config`. An environment variable with the same n
 | `PREP_BEFORE_MIN` | `60` | Minutes before `meeting` when `tick.sh` runs `prep.sh` if the agenda file does not exist yet. |
 | `REMIND_BEFORE_MIN` | `5` | Minutes before `meeting` when `tick.sh` sends a one-time reminder notification. |
 | `AGENT_DIR_ROOTS` | Empty | • **Optional.**<br>• Folders where `agent_dir` may point, separated by `:`, such as `~/code:~/projects`.<br>• Empty turns `agent_dir` off. |
+| `ADDONS` | Empty | • **Optional.** <br>• Comma-separated add-on folder names in `.agent-office/addons/`, such as `timelog,session`. <br>• Empty turns all add-ons off and changes nothing in the core. |
+
+## Add-ons
+
+Turn on add-ons during installation or in `.agent-office/config`:
+
+```bash
+./install.sh /path/to/vault --addons timelog,session
+```
+
+| Add-on | Behavior | Note |
+|---|---|---|
+| `timelog` | • Logs time events as `{at, kind, ref}` in `.agent-office/logs/time/<ID>.jsonl`. <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<ID>`. <br>• Writes a per-ticket table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW`) in `Daily/YYYY-MM-DD.md` for the last 7 days. <br>• Replaces only that section of the note. Never creates a missing note. <br>• Records ticket status changes in `.agent-office/logs/status/<ID>.jsonl`. <br>• `python3 .agent-office/addons/timelog/timelog.py week` prints this week's time. `R` in the TUI shows the same report. | Syncs at the end of each session or meeting and on each `tick.sh` run. |
+| `session` | • Binds one interactive Claude Code session to each ticket. <br>• Writes `session: <SID>` in ticket frontmatter and `.agent-office/logs/sessions/<SID>.json` with the `cmux` surface and workspace. <br>• Resumes that session with `claude --resume <SID>` in the next `meeting.sh` when its transcript exists. <br>• With `timelog` on, also logs agent time for the interactive session. | • Works with `claude` only. <br>• `addons/session/install.py <VAULT_DIR>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT_DIR>/.claude/settings.json`, never to `~/.claude`, and backs up the file. <br>• `install.py <VAULT_DIR> --remove` removes only its hooks. |
+
+- For each name in `ADDONS`, the core scripts call `.agent-office/addons/<name>/on_event <EVENT> <ID> <REF>`.
+- Session events are `session_start`, `session_tick` (every 60 s), and `session_end` with `REF` set to `bg` for `work` and `prep` sessions.
+- Background sessions export `AO_HEADLESS=1`.
+- Meeting events are `meeting_start`, `meeting_tick` (every 60 s), and `meeting_end` with `REF` set to the `meeting.sh` PID.
+- With `ADDONS` non-empty, `meeting.sh` does not `exec` the agent, so it can send `meeting_end` on exit.
+- `tick.sh` sends `tick` with `ID` and `REF` set to `-` once per run.
+- A failing add-on never stops the core scripts (see [PROTOCOL.md](PROTOCOL.md) for the event specification).
 
 ## Language profiles
 
@@ -142,6 +167,7 @@ A profile sets the words that the scripts, the TUI, and the agent use in tickets
 | `H_SUBTASKS` | `## Subtasks` | `## 子任務` | |
 | `H_DECISIONS` | `## Decisions` | `## Decisions` | |
 | `H_CRUMBS` | `## Breadcrumbs` | `## Breadcrumb` | |
+| `H_TIME` | `## Time` | `## 時間` | Heading for the daily time table from the `timelog` add-on. |
 | `MARK` | `(agent)` | `（agent）` | Both markers count as delegated in every profile. |
 | `CRUMB_STOP`, `CRUMB_NEXT` | `Stopped:`, `Next:` | `停在：`, `下一步：` | |
 | `MEETINGS_DIR` | `Office/meetings` | `Office/會議` | |
@@ -189,7 +215,7 @@ A profile sets the words that the scripts, the TUI, and the agent use in tickets
 
 | Item | Behavior | Note |
 |---|---|---|
-| Linked files | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `tick.sh`, `tui.py`, `profiles/` | Each one is a symlink into `template/.agent-office/` of the repo. |
+| Linked files | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `tick.sh`, `tui.py`, `profiles/`, `addons/` | Each one is a symlink into `template/.agent-office/` of the repo. |
 | Local files | `config`, `logs/` | Never in the repo |
 | Changed scripts | A script in the vault that differs from the repo is kept as `<name>.bak`. | A script that is the same as the repo is replaced without a backup. |
 
@@ -216,8 +242,7 @@ bash tests/run.sh
 
 - No web GUI.
 - One agent CLI per vault (`AGENT_CLI` in `.agent-office/config`).
-- No session binding per ticket.
-- No time log.
+- Session binding per ticket (`session` add-on) works with `claude` only.
 - macOS only.
 
 ## License
