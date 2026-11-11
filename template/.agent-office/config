@@ -1,6 +1,12 @@
 # Agent Office settings. The scripts and the TUI read this file.
 # An environment variable with the same name wins over the value here.
 
+# Language profile: en or zh-TW. It sets the ticket headings, the delegation marker,
+# breadcrumb words, folder names, and the rules file (see profiles/<lang>.conf).
+# Any key of the profile can be set here too, such as MEETINGS_DIR=Agent Office/會議
+# An empty value here does not clear a profile key: the profile value is used.
+AO_LANG=en
+
 # The agent CLI for all sessions: claude (Claude Code), codex (Codex CLI),
 # agy (Google Antigravity CLI), or gemini (Gemini CLI, needs a paid Gemini API key or Vertex AI)
 AGENT_CLI=claude

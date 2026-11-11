@@ -25,21 +25,90 @@ VAULT = os.path.dirname(AO_DIR)
 TICKETS = os.path.join(VAULT, "Tickets")
 LOGS = os.path.join(AO_DIR, "logs")
 
+def _conf(path):
+    out = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for ln in fh:
+                m = re.match(r"^([A-Z_]+)=(.*)$", ln.rstrip("\n"))
+                if m:
+                    out[m.group(1)] = m.group(2)
+    except OSError:
+        pass
+    return out
+
+
+def load_settings():
+    """Settings in the same order as lib.sh: environment, config, profile, default."""
+    config = _conf(os.path.join(AO_DIR, "config"))
+    lang = os.environ.get("AO_LANG") or config.get("AO_LANG") or "en"
+    if lang not in ("en", "zh-TW"):
+        lang = "en"
+    profile = _conf(os.path.join(AO_DIR, "profiles", lang + ".conf"))
+    defaults = {"H_DONE": "## Done when", "H_SUBTASKS": "## Subtasks", "H_DECISIONS": "## Decisions",
+                "H_CRUMBS": "## Breadcrumbs", "MARK": "(agent)", "CRUMB_OPENED": "Opened."}
+    out = {"AO_LANG": lang}
+    for k, v in defaults.items():
+        out[k] = os.environ.get(k) or config.get(k) or profile.get(k) or v
+    return out
+
+
+S = load_settings()
+LANG = S["AO_LANG"]
+
+ZH = {
+    "Places": "位置", "Needs me": "等我", "All open": "進行中", "Closed": "已關閉", "Other": "其他",
+    "(no tickets)": "（沒有卡片）", "? for help": "? 看說明", "Reloaded": "已重新讀取",
+    " ⚙ running  ? decide  ✓ review  · delegated ": " ⚙ 執行中  ? 等決定  ✓ 等驗收  · 已交辦 ",
+    "Move        up/down or j/k    Column  left/right, h/l, Tab": "移動        上下或 j/k        切換欄  左右、h/l、Tab",
+    "Enter / t   talk to the agent about the ticket": "Enter / t   跟 agent 談這張卡",
+    "m           hold the meeting            M  set the meeting time": "m           開會                        M  設定會議時間",
+    "w           start a work session now    p  write the meeting agenda now": "w           現在開始工作階段            p  現在寫會議議程",
+    "s           set the status              n  new ticket": "s           改 status                   n  開新卡",
+    "o           open the ticket in Obsidian r  reload       q  quit": "o           在 Obsidian 開啟卡片        r  重新讀取    q  離開",
+    "Make the window bigger (60x10 at least).": "請把視窗放大（至少 60x10）。",
+    " Agent Office   %s needs you   %s running": " Agent Office   %s 張等你   %s 張執行中",
+    "⚙ background %s session running": "⚙ 背景 %s session 執行中",
+    "Agent waits for you: %s": "Agent 在等你：%s", "Waiting on: ": "等待：", "Next meeting: ": "下次會議：",
+    "Subtasks %d/%d": "子任務 %d/%d", "Breadcrumbs": "Breadcrumb", "Last work session": "上次工作階段",
+    "Status: i inbox  b backlog  t todo  d doing  w waiting  o done  x dropped > ":
+        "Status：i inbox  b backlog  t todo  d doing  w waiting  o done  x dropped > ",
+    "%s opened in a split on the right": "%s 已在右邊 split 開啟", "%s ended": "%s 已結束",
+    "Talk with %s": "跟 %s 對話", "Meeting for %s": "%s 的會議",
+    "New ticket title (%s): ": "新卡片標題（%s）：", "%s opened in inbox": "%s 已開卡（inbox）",
+    "Title is empty": "標題是空的", "Cannot create the ticket: %s": "無法建立卡片：%s",
+    "%s has no subtask marked (agent). Talk to the agent to delegate one.": "%s 沒有標（agent）的子任務。先跟 agent 談，交辦一個。",
+    "%s is %s. Work sessions run only on doing tickets.": "%s 是 %s。只有 doing 的卡會跑工作階段。",
+    "%s waits for you (%s). Hold a meeting first (m).": "%s 在等你（%s）。先開會（m）。",
+    "%s already has a session running": "%s 已經有 session 在執行", "%s work session started": "%s 工作階段已開始",
+    "Set the meeting time first (M)": "先設定會議時間（M）", "%s agenda is being written": "%s 議程撰寫中",
+    "%s has a session running. Change it after the session ends.": "%s 有 session 在執行。結束後再改。",
+    "Meeting time YYYY-MM-DD HH:MM (empty clears): ": "會議時間 YYYY-MM-DD HH:MM（空白＝清除）：",
+    "%s meeting: %s": "%s 會議：%s", "cleared": "已清除", "Use the format YYYY-MM-DD HH:MM": "格式是 YYYY-MM-DD HH:MM",
+    "%s is now %s": "%s 現在是 %s", "Opened %s in Obsidian": "已在 Obsidian 開啟 %s",
+    "Status: %s → %s.": "status：%s → %s。", "due ": "期限 ",
+}
+
+
+def _(text):
+    return ZH.get(text, text) if LANG == "zh-TW" else text
+
+
 STATUSES = ["inbox", "backlog", "todo", "doing", "waiting", "done", "dropped"]
 OPEN_ORDER = ["doing", "waiting", "todo", "inbox", "backlog"]
 CLOSED = ("done", "dropped")
-DELEGATED_RE = re.compile(r"^\s*- \[ \] .*\(agent\)\s*$")
+DELEGATED_RE = re.compile(r"^\s*- \[ \] .*(\(agent\)|（agent）)\s*$")
 SUBTASK_RE = re.compile(r"^\s*- \[( |x|X)\] (.*)$")
 POLL = 3.0
 
-HELP = [
+HELP = [_(x) for x in [
     "Move        up/down or j/k    Column  left/right, h/l, Tab",
     "Enter / t   talk to the agent about the ticket",
     "m           hold the meeting            M  set the meeting time",
     "w           start a work session now    p  write the meeting agenda now",
     "s           set the status              n  new ticket",
     "o           open the ticket in Obsidian r  reload       q  quit",
-]
+]]
 
 
 # ----------------------------------------------------------------- text width
@@ -105,12 +174,15 @@ def parse_ticket(path):
     body = lines[body_start:]
     title = os.path.basename(path)[:-3]
     section = None
+    h_sub = {S["H_SUBTASKS"].lower(), "## subtasks"}
+    h_crumb = {S["H_CRUMBS"].lower(), "## breadcrumbs", "## breadcrumb"}
     subtasks, crumbs = [], []
     for ln in body:
         if ln.startswith("# "):
             title = ln[2:].strip()
         if ln.startswith("## "):
-            section = ln[3:].strip().lower()
+            head = ln.strip().lower()
+            section = "subtasks" if head in h_sub else "breadcrumbs" if head in h_crumb else head
             continue
         m = SUBTASK_RE.match(ln)
         if section == "subtasks" and m:
@@ -185,7 +257,8 @@ def set_fields(path, changes, crumb=None):
     if crumb:
         entry = "- %s · %s" % (now_min(), crumb)
         try:
-            i = next(i for i, ln in enumerate(lines) if ln.strip().lower() == "## breadcrumbs")
+            heads = {S["H_CRUMBS"].lower(), "## breadcrumbs", "## breadcrumb"}
+            i = next(i for i, ln in enumerate(lines) if ln.strip().lower() in heads)
             j = i + 1
             while j < len(lines) and lines[j].strip() == "":
                 j += 1
@@ -193,7 +266,7 @@ def set_fields(path, changes, crumb=None):
             if lines[i + 1].strip() != "":
                 lines.insert(i + 1, "")
         except StopIteration:
-            lines += ["", "## Breadcrumbs", "", entry]
+            lines += ["", S["H_CRUMBS"], "", entry]
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines))
@@ -212,8 +285,8 @@ def new_ticket(title, project):
         "---", "id: " + tid, "status: inbox", "project: " + project,
         "created: " + today, "updated: " + today, "due:", "waiting_on:", "owner:",
         "meeting:", "agent_state:", "links: []", "---", "# " + title, "",
-        "## Done when", "", "## Subtasks", "", "## Decisions", "",
-        "## Breadcrumbs", "", "- %s · Opened." % now_min(), "",
+        S["H_DONE"], "", S["H_SUBTASKS"], "", S["H_DECISIONS"], "",
+        S["H_CRUMBS"], "", "- %s · %s" % (now_min(), S["CRUMB_OPENED"]), "",
     ])
     with open(path, "x", encoding="utf-8") as fh:
         fh.write(text)
@@ -225,11 +298,11 @@ def new_ticket(title, project):
 def places(tickets):
     """Left column: (key, label, count)."""
     open_t = [t for t in tickets if t["status"] not in CLOSED]
-    out = [("needs", "Needs me", sum(1 for t in tickets if t["fm"].get("agent_state"))),
-           ("open", "All open", len(open_t))]
+    out = [("needs", _("Needs me"), sum(1 for t in tickets if t["fm"].get("agent_state"))),
+           ("open", _("All open"), len(open_t))]
     for p in sorted({t["project"] for t in open_t}):
-        out.append(("p:" + p, p, sum(1 for t in open_t if t["project"] == p)))
-    out.append(("closed", "Closed", sum(1 for t in tickets if t["status"] in CLOSED)))
+        out.append(("p:" + p, _(p) if p == "Other" else p, sum(1 for t in open_t if t["project"] == p)))
+    out.append(("closed", _("Closed"), sum(1 for t in tickets if t["status"] in CLOSED)))
     return out
 
 
@@ -273,28 +346,28 @@ def detail_lines(t, w):
     out = [("title", t["id"] + " " + t["title"])]
     meta = [t["status"], t["project"]]
     if fm.get("due"):
-        meta.append("due " + fm["due"])
+        meta.append(_("due ") + fm["due"])
     out.append(("dim", " · ".join(meta)))
     kind = running_kind(t["id"])
     if kind:
-        out.append(("warn", "⚙ background %s session running" % kind))
+        out.append(("warn", _("⚙ background %s session running") % kind))
     if fm.get("agent_state"):
-        out.append(("warn", "Agent waits for you: %s" % fm["agent_state"]))
+        out.append(("warn", _("Agent waits for you: %s") % fm["agent_state"]))
     if fm.get("waiting_on"):
-        out.append(("", "Waiting on: " + fm["waiting_on"]))
+        out.append(("", _("Waiting on: ") + fm["waiting_on"]))
     if fm.get("meeting"):
-        out.append(("", "Next meeting: " + fm["meeting"]))
+        out.append(("", _("Next meeting: ") + fm["meeting"]))
     if fm.get("agent_dir"):
         out.append(("dim", "agent_dir: " + fm["agent_dir"]))
     if t["subtasks"]:
         done = sum(1 for d, _ in t["subtasks"] if d)
         out.append(("", ""))
-        out.append(("head", "Subtasks %d/%d" % (done, len(t["subtasks"]))))
+        out.append(("head", _("Subtasks %d/%d") % (done, len(t["subtasks"]))))
         for d, text in t["subtasks"]:
             out.append(("dim" if d else "", ("☑ " if d else "☐ ") + text))
     if t["crumbs"]:
         out.append(("", ""))
-        out.append(("head", "Breadcrumbs"))
+        out.append(("head", _("Breadcrumbs")))
         for c in t["crumbs"][:4]:
             out.append(("", c))
     last = os.path.join(LOGS, t["id"] + "-last-work.txt")
@@ -302,7 +375,7 @@ def detail_lines(t, w):
         tail = [ln for ln in read_text(last).strip().split("\n") if ln.strip()][-3:]
         if tail:
             out.append(("", ""))
-            out.append(("head", "Last work session"))
+            out.append(("head", _("Last work session")))
             out += [("dim", ln) for ln in tail]
     wrapped = []
     for style, text in out:
@@ -349,7 +422,7 @@ class App:
         self.col = 1
         self.place = 1
         self.row = 0
-        self.msg = "? for help"
+        self.msg = _("? for help")
         self.help = False
         self.reload()
 
@@ -406,24 +479,24 @@ class App:
         scr.erase()
         h, w = scr.getmaxyx()
         if h < 10 or w < 60:
-            scr.addstr(0, 0, fit("Make the window bigger (60x10 at least).", w - 1))
+            scr.addstr(0, 0, fit(_("Make the window bigger (60x10 at least)."), w - 1))
             scr.refresh()
             return
         cur = self.current()
         need = sum(1 for t in self.tickets if t["fm"].get("agent_state"))
         run = sum(1 for t in self.tickets if running_kind(t["id"]))
-        head = " Agent Office   %s needs you   %s running" % (need, run)
+        head = _(" Agent Office   %s needs you   %s running") % (need, run)
         scr.addstr(0, 0, fit(head, w - 1 - 6) + time.strftime("%H:%M"), curses.A_REVERSE)
         lw, mw = 18, max(30, (w - 18) // 2 - 4)
         rw = w - lw - mw - 3
         top = 2
         body_h = h - top - 2
         # column titles
-        scr.addstr(1, 0, fit(" Places", lw), self.title_attr(0))
+        scr.addstr(1, 0, fit(" " + _("Places"), lw), self.title_attr(0))
         scr.addstr(1, lw + 1, fit(" " + self.places[self.place][1], mw), self.title_attr(1))
         scr.addstr(1, lw + mw + 2, fit(" " + (cur["id"] if cur else ""), rw), curses.A_BOLD)
         # left
-        for i, (_, label, n) in enumerate(self.places[:body_h]):
+        for i, (_key, label, n) in enumerate(self.places[:body_h]):
             text = " %s%s" % (fit(label, lw - 5), str(n).rjust(3))
             attr = curses.A_REVERSE if i == self.place and self.col == 0 else (curses.A_BOLD if i == self.place else 0)
             scr.addstr(top + i, 0, fit(text, lw), attr)
@@ -438,7 +511,7 @@ class App:
             attr = curses.A_REVERSE if first + i == self.row and self.col == 1 else 0
             scr.addstr(y, lw + 1, fit(text, mw), attr)
         if not self.rows:
-            scr.addstr(top, lw + 1, fit(" (no tickets)", mw), curses.A_DIM)
+            scr.addstr(top, lw + 1, fit(" " + _("(no tickets)"), mw), curses.A_DIM)
         # right
         if cur:
             styles = {"title": curses.A_BOLD, "head": curses.A_UNDERLINE, "dim": curses.A_DIM,
@@ -452,7 +525,7 @@ class App:
         if self.help:
             for i, ln in enumerate(HELP):
                 scr.addstr(h - 2 - len(HELP) + i, lw + 1, fit(" " + ln, w - lw - 2), curses.A_REVERSE)
-        legend = " ⚙ running  ? decide  ✓ review  · delegated "
+        legend = _(" ⚙ running  ? decide  ✓ review  · delegated ")
         scr.addstr(h - 1, 0, fit(" " + self.msg, w - 1 - width(legend)) + legend, curses.A_DIM)
         scr.refresh()
 
@@ -490,17 +563,17 @@ class App:
 
     def pick_status(self, scr):
         choices = {"i": "inbox", "b": "backlog", "t": "todo", "d": "doing", "w": "waiting", "o": "done", "x": "dropped"}
-        a = self.ask(scr, "Status: i inbox  b backlog  t todo  d doing  w waiting  o done  x dropped > ")
+        a = self.ask(scr, _("Status: i inbox  b backlog  t todo  d doing  w waiting  o done  x dropped > "))
         return choices.get((a or "").strip()[:1])
 
     def interactive(self, scr, args, what):
         if open_split(["/bin/bash"] + args):
-            self.msg = what + " opened in a split on the right"
+            self.msg = _("%s opened in a split on the right") % what
             return
         curses.endwin()
         subprocess.call(["/bin/bash"] + args, cwd=VAULT)
         scr.refresh()
-        self.msg = what + " ended"
+        self.msg = _("%s ended") % what
 
     def act(self, scr, key):
         cur = self.current()
@@ -520,57 +593,57 @@ class App:
             self.col = 1 - self.col
         elif key == "r":
             self.reload()
-            self.msg = "Reloaded"
+            self.msg = _("Reloaded")
         elif key == "n":
             p = self.places[self.place][0]
             project = p[2:] if p.startswith("p:") else "Other"
-            title = self.ask(scr, "New ticket title (%s): " % project)
+            title = self.ask(scr, _("New ticket title (%s): ") % project)
             if title:
                 try:
                     tid = new_ticket(title[:120], project)
-                    self.msg = ("%s opened in inbox" % tid) if tid else "Title is empty"
+                    self.msg = (_("%s opened in inbox") % tid) if tid else _("Title is empty")
                 except OSError as e:
-                    self.msg = "Cannot create the ticket: %s" % e.strerror
+                    self.msg = _("Cannot create the ticket: %s") % e.strerror
                 self.reload()
         elif cur is None:
             pass
         elif key in ("\n", "\r", "t", curses.KEY_ENTER):
-            self.interactive(scr, [os.path.join(AO_DIR, "meeting.sh"), cur["id"], "--talk"], "Talk with %s" % cur["id"])
+            self.interactive(scr, [os.path.join(AO_DIR, "meeting.sh"), cur["id"], "--talk"], _("Talk with %s") % cur["id"])
         elif key == "m":
-            self.interactive(scr, [os.path.join(AO_DIR, "meeting.sh"), cur["id"]], "Meeting for %s" % cur["id"])
+            self.interactive(scr, [os.path.join(AO_DIR, "meeting.sh"), cur["id"]], _("Meeting for %s") % cur["id"])
         elif key == "w":
             if not cur["delegated"]:
-                self.msg = "%s has no subtask marked (agent). Talk to the agent to delegate one." % cur["id"]
+                self.msg = _("%s has no subtask marked (agent). Talk to the agent to delegate one.") % cur["id"]
             elif cur["status"] != "doing":
-                self.msg = "%s is %s. Work sessions run only on doing tickets." % (cur["id"], cur["status"])
+                self.msg = _("%s is %s. Work sessions run only on doing tickets.") % (cur["id"], cur["status"])
             elif cur["fm"].get("agent_state"):
-                self.msg = "%s waits for you (%s). Hold a meeting first (m)." % (cur["id"], cur["fm"]["agent_state"])
+                self.msg = _("%s waits for you (%s). Hold a meeting first (m).") % (cur["id"], cur["fm"]["agent_state"])
             elif running_kind(cur["id"]):
-                self.msg = "%s already has a session running" % cur["id"]
+                self.msg = _("%s already has a session running") % cur["id"]
             else:
                 start_bg("work.sh", cur["id"])
-                self.msg = "%s work session started" % cur["id"]
+                self.msg = _("%s work session started") % cur["id"]
         elif key == "p":
             if not cur["fm"].get("meeting"):
-                self.msg = "Set the meeting time first (M)"
+                self.msg = _("Set the meeting time first (M)")
             elif running_kind(cur["id"]):
-                self.msg = "%s already has a session running" % cur["id"]
+                self.msg = _("%s already has a session running") % cur["id"]
             else:
                 start_bg("prep.sh", cur["id"])
-                self.msg = "%s agenda is being written" % cur["id"]
+                self.msg = _("%s agenda is being written") % cur["id"]
         elif key in ("M", "s") and running_kind(cur["id"]):
-            self.msg = "%s has a session running. Change it after the session ends." % cur["id"]
+            self.msg = _("%s has a session running. Change it after the session ends.") % cur["id"]
         elif key == "M":
-            v = self.ask(scr, "Meeting time YYYY-MM-DD HH:MM (empty clears): ", cur["fm"].get("meeting", ""))
+            v = self.ask(scr, _("Meeting time YYYY-MM-DD HH:MM (empty clears): "), cur["fm"].get("meeting", ""))
             if v is not None:
                 v = v.strip()
                 try:
                     if v:
                         dt.datetime.strptime(v, "%Y-%m-%d %H:%M")
                     set_fields(cur["path"], {"meeting": v})
-                    self.msg = "%s meeting: %s" % (cur["id"], v or "cleared")
+                    self.msg = _("%s meeting: %s") % (cur["id"], v or _("cleared"))
                 except ValueError:
-                    self.msg = "Use the format YYYY-MM-DD HH:MM"
+                    self.msg = _("Use the format YYYY-MM-DD HH:MM")
                 self.reload()
         elif key == "s":
             st = self.pick_status(scr)
@@ -578,12 +651,12 @@ class App:
                 changes = {"status": st}
                 if st != "waiting":
                     changes.update({"waiting_on": "", "agent_state": ""})
-                set_fields(cur["path"], changes, "Status: %s → %s." % (cur["status"], st))
+                set_fields(cur["path"], changes, _("Status: %s → %s.") % (cur["status"], st))
                 self.reload()
-                self.msg = "%s is now %s" % (cur["id"], st)
+                self.msg = _("%s is now %s") % (cur["id"], st)
         elif key == "o":
             open_in_obsidian(cur["path"])
-            self.msg = "Opened %s in Obsidian" % cur["id"]
+            self.msg = _("Opened %s in Obsidian") % cur["id"]
         return True
 
 

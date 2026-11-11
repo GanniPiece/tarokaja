@@ -30,6 +30,9 @@ run_test() {
     : > "$STUB_NOTIFY_LOG"
 
     unset AGENT_CLI WORK_EVERY_HOURS WORK_HOURS_FROM WORK_HOURS_TO PREP_BEFORE_MIN REMIND_BEFORE_MIN AO_NOW AO_HOUR
+    # Profile keys: a developer's shell must not change the results
+    unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
+      MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK WRITE_LANG AGENT_DIR_ROOTS AO_LANG MEETINGS_DIR OUTPUTS_DIR RULES_FILE
 
     VAULT="$test_tmp/vault"
     export VAULT
@@ -220,7 +223,7 @@ test_work_valid_claude_session() {
   grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tickets/T-001 Try Agent Office.md'
 
   [ -f "$VAULT/.agent-office/logs/T-001-last-work.txt" ]
-  grep -q 'stub done' "$VAULT/.agent-office/logs/T-001-last-work.txt"
+  grep -q 'stub result text' "$VAULT/.agent-office/logs/T-001-last-work.txt"
   [ -s "$VAULT/.agent-office/logs/T-001.last-work" ]
   [ ! -e "$VAULT/.agent-office/logs/T-001.pid" ]
   grep -q '^- 2026-01-01 10:00 · \[agent\] Stopped: stub\. Next: stub\.$' "$t1"
@@ -378,7 +381,7 @@ test_lock_and_denied_paths() {
 }
 
 test_no_personal_data() {
-  if grep -rIlE 'popo|Po-Chun|@gmail|/Users/' "$REPO_DIR/install.sh" "$REPO_DIR/template" "$REPO_DIR/launchd"; then return 1; fi
+  if grep -rIlE 'popo|Po-Chun|@gmail|/Users/' "$REPO_DIR/install.sh" "$REPO_DIR/template" "$REPO_DIR/locale" "$REPO_DIR/launchd"; then return 1; fi
 }
 
 test_meeting_blocks_work_and_prep_once() {
@@ -421,6 +424,343 @@ test_plist_keeps_sessions_and_escapes_path() {
   grep -qF "$(sed -n '/Escape the path for XML/,/plutil -lint/p' "$REPO_DIR/install.sh" | grep 'xml=')" "$REPO_DIR/install.sh"
 }
 
+test_profiles_and_cfg_precedence() {
+  [ -f "$REPO_DIR/template/.agent-office/profiles/en.conf" ]
+  [ -f "$REPO_DIR/template/.agent-office/profiles/zh-TW.conf" ]
+  [ -f "$VAULT/.agent-office/profiles/en.conf" ]
+  [ -f "$VAULT/.agent-office/profiles/zh-TW.conf" ]
+
+  unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+  . "$VAULT/.agent-office/lib.sh"
+
+  # Default profile (AO_LANG=en)
+  [ "$(cfg H_DONE fallback)" = "## Done when" ]
+  [ "$(cfg H_SUBTASKS fallback)" = "## Subtasks" ]
+  [ "$(cfg H_DECISIONS fallback)" = "## Decisions" ]
+  [ "$(cfg H_CRUMBS fallback)" = "## Breadcrumbs" ]
+  [ "$(cfg MARK fallback)" = "(agent)" ]
+  [ "$(cfg CRUMB_STOP fallback)" = "Stopped:" ]
+  [ "$(cfg CRUMB_NEXT fallback)" = "Next:" ]
+  [ "$(cfg MEETINGS_DIR fallback)" = "Office/meetings" ]
+  [ "$(cfg OUTPUTS_DIR fallback)" = "Office/outputs" ]
+  [ "$(cfg RULES_FILE fallback)" = "AGENTS.md" ]
+
+  # AO_LANG=zh-TW in config selects zh-TW profile
+  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
+    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  else
+    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+  fi
+  unset AO_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+  . "$VAULT/.agent-office/lib.sh"
+
+  [ "$(cfg H_DONE fallback)" = "## 完成條件" ]
+  [ "$(cfg H_SUBTASKS fallback)" = "## 子任務" ]
+  [ "$(cfg H_DECISIONS fallback)" = "## Decisions" ]
+  [ "$(cfg H_CRUMBS fallback)" = "## Breadcrumb" ]
+  [ "$(cfg MARK fallback)" = "（agent）" ]
+  [ "$(cfg CRUMB_STOP fallback)" = "停在：" ]
+  [ "$(cfg CRUMB_NEXT fallback)" = "下一步：" ]
+  [ "$(cfg MEETINGS_DIR fallback)" = "Office/會議" ]
+  [ "$(cfg OUTPUTS_DIR fallback)" = "Office/產出" ]
+  [ "$(cfg RULES_FILE fallback)" = "AGENTS.md" ]
+
+  # Precedence: env > .agent-office/config > selected profile > DEFAULT
+  [ "$(cfg UNSET_KEY_XYZ my_default)" = "my_default" ]
+  unset OUTPUTS_DIR
+  [ "$(cfg OUTPUTS_DIR my_default)" = "Office/產出" ]
+  echo "OUTPUTS_DIR=Custom/outputs" >> "$VAULT/.agent-office/config"
+  unset OUTPUTS_DIR
+  . "$VAULT/.agent-office/lib.sh"
+  [ "$(cfg OUTPUTS_DIR my_default)" = "Custom/outputs" ]
+  [ "$(OUTPUTS_DIR=Env/outputs cfg OUTPUTS_DIR my_default)" = "Env/outputs" ]
+}
+
+test_lib_delegated_fullwidth_any_profile() {
+  local f_fw="$VAULT/Tickets/T-020 Fullwidth Agent.md"
+  cat > "$f_fw" <<'EOF'
+---
+id: T-020
+owner:
+---
+## 子任務
+- [ ] 撰寫說明（agent）
+EOF
+
+  local f_hw="$VAULT/Tickets/T-021 Halfwidth Agent.md"
+  cat > "$f_hw" <<'EOF'
+---
+id: T-021
+owner:
+---
+## Subtasks
+- [ ] Write note (agent)
+EOF
+
+  local f_done="$VAULT/Tickets/T-022 Done Fullwidth.md"
+  cat > "$f_done" <<'EOF'
+---
+id: T-022
+owner:
+---
+## 子任務
+- [x] 撰寫說明（agent）
+- [ ] 一般子任務
+EOF
+
+  # en profile accepts both (agent) and （agent）
+  unset AO_LANG
+  . "$VAULT/.agent-office/lib.sh"
+  delegated "$f_fw"
+  delegated "$f_hw"
+  if delegated "$f_done"; then return 1; fi
+
+  # zh-TW profile accepts both (agent) and （agent）
+  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
+    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  else
+    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+  fi
+  unset AO_LANG
+  . "$VAULT/.agent-office/lib.sh"
+  delegated "$f_fw"
+  delegated "$f_hw"
+  if delegated "$f_done"; then return 1; fi
+}
+
+test_meetings_dir_profile_and_override() {
+  . "$VAULT/.agent-office/lib.sh"
+  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  local m_str="2026-11-11 15:00"
+  local m_epoch
+  m_epoch="$(to_epoch "$m_str")"
+  sed -i '' "s/^meeting:$/meeting: $m_str/" "$t1"
+
+  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
+    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  else
+    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+  fi
+
+  # prep.sh with AO_LANG=zh-TW writes agenda path under Office/會議
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/prep.sh" T-001
+  grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Office/會議/2026-11-11 1500 T-001.md'
+
+  # tick.sh looks for agenda under Office/會議 (skips prep when agenda exists there)
+  rm -f "$VAULT/.agent-office/logs/T-001.prepped-2026-11-11 1500"
+  mkdir -p "$VAULT/Office/會議"
+  : > "$VAULT/Office/會議/2026-11-11 1500 T-001.md"
+  : > "$STUB_AGENT_LOG"
+  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  [ ! -s "$STUB_AGENT_LOG" ]
+
+  # tick.sh runs prep when agenda under Office/會議 is missing
+  rm -f "$VAULT/Office/會議/2026-11-11 1500 T-001.md"
+  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Office/會議/2026-11-11 1500 T-001.md'
+
+  # Config line MEETINGS_DIR=Agent Office/會議 overrides the profile
+  echo "MEETINGS_DIR=Agent Office/會議" >> "$VAULT/.agent-office/config"
+  rm -f "$VAULT/.agent-office/logs/T-001.prepped-2026-11-11 1500"
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/prep.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/會議/2026-11-11 1500 T-001.md'
+
+  # tick.sh respects MEETINGS_DIR=Agent Office/會議 override
+  rm -f "$VAULT/.agent-office/logs/T-001.prepped-2026-11-11 1500"
+  mkdir -p "$VAULT/Agent Office/會議"
+  : > "$VAULT/Agent Office/會議/2026-11-11 1500 T-001.md"
+  : > "$STUB_AGENT_LOG"
+  AO_NOW="$((m_epoch - 30 * 60))" AO_HOUR=22 /bin/bash "$VAULT/.agent-office/tick.sh"
+  [ ! -s "$STUB_AGENT_LOG" ]
+}
+
+test_rules_file_in_prompts() {
+  local t1="$VAULT/Tickets/T-001 Try Agent Office.md"
+  sed -i '' 's/^meeting:$/meeting: 2026-11-11 15:00/' "$t1"
+  echo "RULES_FILE=Agent Office/AGENT.md" >> "$VAULT/.agent-office/config"
+
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
+
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/prep.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
+
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
+
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.agent-office/meeting.sh" T-001 --talk
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Agent Office/AGENT.md'
+  if grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'AGENTS\.md'; then return 1; fi
+}
+
+test_install_lang_flag() {
+  # Default en install must NOT create Office/會議
+  if [ -e "$VAULT/Office/會議" ]; then return 1; fi
+
+  local v_zh="$VAULT-zh"
+  /bin/bash "$REPO_DIR/install.sh" "$v_zh" --lang zh-TW >/dev/null
+  grep -q '^AO_LANG=zh-TW$' "$v_zh/.agent-office/config"
+  [ -f "$v_zh/AGENTS.md" ]
+  grep -q '完成條件' "$v_zh/AGENTS.md"
+
+  local t1="" f
+  for f in "$v_zh/Tickets/T-001 "*.md; do
+    [ -f "$f" ] && t1="$f"
+  done
+  [ -n "$t1" ]
+  grep -q '^## 完成條件$' "$t1"
+  grep -q '^## 子任務$' "$t1"
+  grep -q '^## Breadcrumb$' "$t1"
+  grep -qE '^[[:space:]]*- \[ \] .*（agent）[[:space:]]*$' "$t1"
+
+  [ -d "$v_zh/Office/會議" ]
+  [ -d "$v_zh/Office/產出" ]
+  if [ -e "$v_zh/Office/meetings" ]; then return 1; fi
+  if [ -e "$v_zh/Office/outputs" ]; then return 1; fi
+
+  # Reinstall without --lang keeps AO_LANG
+  /bin/bash "$REPO_DIR/install.sh" "$v_zh" >/dev/null
+  grep -q '^AO_LANG=zh-TW$' "$v_zh/.agent-office/config"
+
+  # --lang with a bad value exits 2
+  local rc=0
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT-bad1" --lang invalid >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ]
+
+  # --lang as the last argument exits 2
+  rc=0
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT-bad2" --lang >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ]
+}
+
+test_install_link_flag() {
+  echo "# pre-link-marker" >> "$VAULT/.agent-office/work.sh"
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --link >/dev/null
+
+  local item target
+  for item in lib.sh work.sh prep.sh meeting.sh tick.sh tui.py profiles; do
+    [ -L "$VAULT/.agent-office/$item" ]
+    target="$(readlink "$VAULT/.agent-office/$item")"
+    case "$target" in
+      *"template/.agent-office/$item") ;;
+      *) return 1 ;;
+    esac
+  done
+
+  # .agent-office/config is a regular file, not a symlink
+  [ -f "$VAULT/.agent-office/config" ]
+  if [ -L "$VAULT/.agent-office/config" ]; then return 1; fi
+
+  # A script that differs from the repo is kept as <name>.bak (spec revised in Code stage:
+  # a script that is the same as the repo needs no backup, so a fresh --link install has no .bak noise)
+  [ -f "$VAULT/.agent-office/work.sh.bak" ]
+  if [ -L "$VAULT/.agent-office/work.sh.bak" ]; then return 1; fi
+  grep -q '^# pre-link-marker$' "$VAULT/.agent-office/work.sh.bak"
+  for item in lib.sh prep.sh meeting.sh tick.sh tui.py profiles; do
+    if [ -e "$VAULT/.agent-office/$item.bak" ]; then return 1; fi
+  done
+
+  # work.sh run through the symlink still finds the vault (logs in VAULT/.agent-office/logs, not repo)
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  [ -f "$VAULT/.agent-office/logs/T-001-last-work.txt" ]
+  [ -f "$VAULT/.agent-office/logs/agent.log" ]
+  if [ -e "$REPO_DIR/template/.agent-office/logs" ]; then return 1; fi
+}
+
+test_work_claude_stream_json() {
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+
+  grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
+  grep -q '^ARG: --output-format$' "$STUB_AGENT_LOG"
+  grep -q '^ARG: stream-json$' "$STUB_AGENT_LOG"
+  grep -q '^ARG: --verbose$' "$STUB_AGENT_LOG"
+
+  local stream="$VAULT/.agent-office/logs/T-001-stream.jsonl"
+  [ -f "$stream" ]
+  grep -q '{"type":"assistant"' "$stream"
+  grep -q '{"type":"result","result":"stub result text"}' "$stream"
+
+  local last_work="$VAULT/.agent-office/logs/T-001-last-work.txt"
+  [ -f "$last_work" ]
+  [ "$(cat "$last_work")" = "stub result text" ]
+}
+
+test_tui_zh_profile() {
+  # en behavior and --print
+  python3 -I "$TESTS_DIR/test_tui.py" "$VAULT"
+  local out_en
+  out_en="$(cd "$VAULT" && python3 -I .agent-office/tui.py --print)"
+  printf '%s\n' "$out_en" | grep -q 'T-001'
+
+  # zh-TW behavior and --print
+  if grep -q '^AO_LANG=' "$VAULT/.agent-office/config"; then
+    sed -i '' 's/^AO_LANG=.*/AO_LANG=zh-TW/' "$VAULT/.agent-office/config"
+  else
+    echo "AO_LANG=zh-TW" >> "$VAULT/.agent-office/config"
+  fi
+  rm -f "$VAULT/Tickets/T-001 Try Agent Office.md" "$VAULT/Tickets/T-002 Second task.md"
+  python3 -I "$TESTS_DIR/test_tui_zh.py" "$VAULT"
+
+  local out_zh
+  out_zh="$(cd "$VAULT" && python3 -I .agent-office/tui.py --print)"
+  printf '%s\n' "$out_zh" | grep -q 'T-001'
+  printf '%s\n' "$out_zh" | grep -q 'T-002'
+}
+
+test_tui_screen_both_languages() {
+  # Draw the real curses screen in a pseudo-terminal, press keys, and quit, in en and zh-TW.
+  local lang
+  for lang in en zh-TW; do
+    sed -i '' "s/^AO_LANG=.*/AO_LANG=$lang/" "$VAULT/.agent-office/config"
+    python3 -I "$TESTS_DIR/tui_screen.py" "$VAULT" "$lang"
+  done
+}
+
+test_lang_on_old_config_and_relink() {
+  # A config from v0.1 has no AO_LANG line: --lang must add it
+  sed -i '' '/^AO_LANG=/d' "$VAULT/.agent-office/config"
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --lang zh-TW >/dev/null
+  grep -q '^AO_LANG=zh-TW$' "$VAULT/.agent-office/config"
+  ( . "$VAULT/.agent-office/lib.sh"; [ "$AO_LANG" = zh-TW ] && [ "$MEETINGS" = "Office/會議" ] )
+  # --link twice: still links, no .bak of a link, and the repo's file modes do not change
+  # Work on a copy of the repo, so the test never changes the real repo's files.
+  local repo="$test_tmp/repo-copy" mode
+  mkdir -p "$repo" && cp -R "$REPO_DIR/install.sh" "$REPO_DIR/template" "$REPO_DIR/locale" "$REPO_DIR/launchd" "$repo/"
+  chmod a-x "$repo/template/.agent-office/prep.sh"
+  mode="$(stat -f '%Lp' "$repo/template/.agent-office/prep.sh")"
+  /bin/bash "$repo/install.sh" "$VAULT" --link >/dev/null
+  /bin/bash "$repo/install.sh" "$VAULT" --link >/dev/null
+  [ "$(stat -f '%Lp' "$repo/template/.agent-office/prep.sh")" = "$mode" ]
+  [ -L "$VAULT/.agent-office/work.sh" ]
+  if [ -e "$VAULT/.agent-office/work.sh.bak" ]; then return 1; fi
+}
+
+test_stream_error_result() {
+  # A result event without text (an error such as error_max_turns) still gives the manager a reason
+  printf '#!/bin/bash\necho '"'"'{"type":"result","subtype":"error_max_turns","is_error":true}'"'"'\n' > "$HOME/.local/bin/claude"
+  chmod +x "$HOME/.local/bin/claude"
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001
+  grep -q 'error_max_turns' "$VAULT/.agent-office/logs/T-001-last-work.txt"
+  # No result event at all: the stderr tail is kept
+  printf '#!/bin/bash\necho "auth failed" >&2\nexit 1\n' > "$HOME/.local/bin/claude"
+  rm -f "$VAULT/.agent-office/logs/T-001.last-work"
+  /bin/bash "$VAULT/.agent-office/work.sh" T-001 || true
+  grep -q 'auth failed' "$VAULT/.agent-office/logs/T-001-last-work.txt"
+}
+
+run_test "install.sh --lang on an old config, --link twice" test_lang_on_old_config_and_relink
+run_test "stream-json error result and stderr fallback" test_stream_error_result
+run_test "tui.py draws the screen and quits in en and zh-TW" test_tui_screen_both_languages
 run_test "meeting blocks work, prep tried once per meeting" test_meeting_blocks_work_and_prep_once
 run_test "launchd plist keeps sessions and escapes the vault path" test_plist_keeps_sessions_and_escapes_path
 run_test "install.sh keeps config on reinstall and rejects bad args" test_install_keeps_config_and_bad_args
@@ -437,6 +777,14 @@ run_test "work.sh codex exec and agent_dir validation" test_work_codex_and_agent
 run_test "tick.sh work hours, agent_state, and WORK_EVERY_HOURS" test_tick_work_hours_and_throttling
 run_test "tick.sh prep and single reminder notification" test_tick_prep_and_reminder
 run_test "tui.py module functions and --print" test_tui_module_and_print
+run_test "profiles (en, zh-TW) and cfg precedence" test_profiles_and_cfg_precedence
+run_test "lib.sh delegated accepts (agent) and （agent） in any profile" test_lib_delegated_fullwidth_any_profile
+run_test "prep.sh and tick.sh use MEETINGS_DIR from profile and config" test_meetings_dir_profile_and_override
+run_test "work.sh, prep.sh, meeting.sh prompts use RULES_FILE" test_rules_file_in_prompts
+run_test "install.sh --lang en|zh-TW layout, reinstall, and bad args" test_install_lang_flag
+run_test "install.sh --link symlinks, .bak backups, and vault log path" test_install_link_flag
+run_test "work.sh claude stream-json output and result extraction" test_work_claude_stream_json
+run_test "tui.py with AO_LANG=zh-TW and --print" test_tui_zh_profile
 
 echo ""
 echo "Summary: $PASS_COUNT passed, $FAIL_COUNT failed"

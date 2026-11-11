@@ -15,7 +15,7 @@ run() {
   : > "$LOG_DIR/$id.prepped-$(echo "$meeting" | tr -d ':')"   # one try per meeting, also when the agent fails
   cd "$VAULT" || exit 1
   log "prep start $id -> $agenda"
-  run_bg_session "$id" prep "Follow \"Meeting prep\" in AGENTS.md. Write the agenda for the $id meeting at $meeting to \"$agenda\". Ticket: Tickets/$(basename "$f"). The time now is $(now_min). Write only the agenda. Do not make progress on the work."
+  run_bg_session "$id" prep "Follow \"$(cfg SEC_PREP 'Meeting prep')\" in $RULES. Write the agenda for the $id meeting at $meeting to \"$agenda\". Ticket: Tickets/$(basename "$f"). The time now is $(now_min). Write only the agenda. Do not make progress on the work. $(lang_note)"
   log "prep end $id rc=$?"
   [ -f "$VAULT/$agenda" ] && notify "$id agenda is ready" "Meeting at $meeting: $agenda"
   return 0

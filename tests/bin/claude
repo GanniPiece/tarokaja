@@ -43,7 +43,7 @@ if [ -n "$prompt" ]; then
               print "- 2026-01-01 10:00 · [agent] Stopped: stub. Next: stub."
               added=1
             }
-            in_bc = (tolower($0) ~ /^## breadcrumbs[ \t]*$/)
+            in_bc = (tolower($0) ~ /^## breadcrumbs?[ \t]*$/)
           }
           { print }
           END {
@@ -56,5 +56,13 @@ if [ -n "$prompt" ]; then
       fi
     done
   fi
-  echo "stub done"
+  case " $* " in
+    *" --output-format stream-json "*|*" --output-format=stream-json "*)
+      printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"stub working"}]}}'
+      printf '%s\n' '{"type":"result","result":"stub result text"}'
+      ;;
+    *)
+      echo "stub done"
+      ;;
+  esac
 fi
