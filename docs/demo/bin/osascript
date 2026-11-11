@@ -1,0 +1,3 @@
+#!/bin/bash
+# Stand-in for osascript in the demo recording: no real notification.
+exit 0
