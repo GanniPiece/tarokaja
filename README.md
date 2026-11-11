@@ -5,13 +5,29 @@
 | 0.1 | 2026-11-11 | GanniPiece | First version |
 | 0.2 | 2026-11-11 | GanniPiece | Language profiles (`en`, `zh-TW`), `install.sh --lang` and `--link`, stream-json log for Claude Code |
 | 0.3 | 2026-11-11 | GanniPiece | Add-ons: timelog and session |
+| 0.4 | 2026-11-11 | GanniPiece | Why Agent Office: comparison with other agent tools |
 
 - Agent Office runs an AI agent as a team member inside an Obsidian vault on macOS.
 - Tickets are plain Markdown notes, work covers notes and research in addition to code, and only the manager closes a ticket.
+- The agent works like a team member, not a tool that you watch: it stops for your decisions and your review. See [Why Agent Office](#why-agent-office).
 - Start at [Installation](#installation) and [First run](#first-run) to set up a vault and complete ticket `T-001`.
 - Not in this document:
   - Data format and state machine specification for tool authors: [PROTOCOL.md](PROTOCOL.md)
   - Agent session rules inside a vault: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md))
+
+## Why Agent Office
+
+Other tools cover one part of this workflow. Agent Office puts the parts together around a manager and a team member.
+
+| Feature | Agent Office | Other tools | Note |
+|---|---|---|---|
+| Manager workflow | • The agent stops with `agent_state: decide` or `review` and waits for you.<br>• You answer in a meeting and accept the work.<br>• Only you close a ticket. | Most agent boards end with a diff or a pull request for you to review. | |
+| Shared ownership in one ticket | • Subtasks that end with `(agent)` belong to the agent.<br>• All other subtasks stay yours. | Most boards assign a whole card to one agent. | |
+| All kinds of work | Tickets cover notes, research, documents, and admin work, not only code. | • Vibe Kanban runs each task in a git worktree of a code repo.<br>• Backlog.md keeps tasks as Markdown files in a code repo. | `agent_dir` gives a ticket a code folder when it needs one. |
+| Your notes are the board | • Tickets are plain Markdown in your Obsidian vault.<br>• Breadcrumbs, Daily notes, and links stay in the notes that you already use. | Most boards keep tasks in their own app or in a code repo. | You can read and edit every ticket without Agent Office. |
+| One agent CLI or another | Claude Code, Codex CLI, Antigravity CLI, or Gemini CLI | | One CLI per vault |
+| Time per ticket | The `timelog` add-on counts your time and the agent's time on each ticket. | Pixel-office and notch status apps show what a session does now, with no ticket behind it. | **Optional** add-on |
+| Small footprint | • Bash, Python standard library, cmux, and Obsidian<br>• No server, database, or account | | macOS only |
 
 ## Concept
 
