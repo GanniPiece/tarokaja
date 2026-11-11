@@ -1,0 +1,13 @@
+#!/bin/bash
+# Real Claude Code for the meeting demo. It skips the user settings of the person who records
+# (hooks, status line, plugins) and the spinner tips, so only the demo vault shows on screen.
+# It also turns off AskUserQuestion and Bash, so the agent asks in plain text and no permission prompt stops the tape.
+here="$(cd "$(dirname "$0")" && pwd)"
+PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vx "$here" | paste -sd: -)"
+args=() next=""
+for a in "$@"; do
+  if [ -n "$next" ]; then a="$a,AskUserQuestion,Bash"; next=""; fi
+  [ "$a" = --disallowedTools ] && next=1
+  args+=("$a")
+done
+exec claude --setting-sources project,local --settings '{"spinnerTipsEnabled": false}' --model sonnet "${args[@]}"
