@@ -66,6 +66,8 @@ ZH = {
     "w           start a work session now    p  write the meeting agenda now": "w           現在開始工作階段            p  現在寫會議議程",
     "s           set the status              n  new ticket": "s           改 status                   n  開新卡",
     "o           open the ticket in Obsidian r  reload       q  quit": "o           在 Obsidian 開啟卡片        r  重新讀取    q  離開",
+    "R           this week's time (timelog add-on)": "R           本週時間（timelog add-on）",
+    "Time log is off. Add timelog to ADDONS in .agent-office/config.": "時間紀錄沒開。在 .agent-office/config 的 ADDONS 加上 timelog。",
     "Make the window bigger (60x10 at least).": "請把視窗放大（至少 60x10）。",
     " Agent Office   %s needs you   %s running": " Agent Office   %s 張等你   %s 張執行中",
     "⚙ background %s session running": "⚙ 背景 %s session 執行中",
@@ -108,7 +110,27 @@ HELP = [_(x) for x in [
     "w           start a work session now    p  write the meeting agenda now",
     "s           set the status              n  new ticket",
     "o           open the ticket in Obsidian r  reload       q  quit",
+    "R           this week's time (timelog add-on)",
 ]]
+
+
+def addon_on(name):
+    """True when the add-on is in ADDONS (read now: the config can change while the TUI runs)."""
+    val = os.environ.get("ADDONS") or _conf(os.path.join(AO_DIR, "config")).get("ADDONS", "")
+    return name in [a.strip() for a in val.split(",")]
+
+
+def week_report_lines():
+    """This week's time per ticket from the timelog add-on, [] when it is off or fails."""
+    script = os.path.join(AO_DIR, "addons", "timelog", "timelog.py")
+    if not addon_on("timelog") or not os.path.isfile(script):
+        return []
+    try:
+        r = subprocess.run([sys.executable, "-I", script, "week"], cwd=VAULT, stdin=subprocess.DEVNULL,
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return r.stdout.splitlines() if r.returncode == 0 else []
 
 
 # ----------------------------------------------------------------- text width
@@ -424,6 +446,7 @@ class App:
         self.row = 0
         self.msg = _("? for help")
         self.help = False
+        self.report = []
         self.reload()
 
     def reload(self):
@@ -522,9 +545,9 @@ class App:
         for y in range(1, h - 1):
             scr.addstr(y, lw, "│", curses.A_DIM)
             scr.addstr(y, lw + mw + 1, "│", curses.A_DIM)
-        if self.help:
-            for i, ln in enumerate(HELP):
-                scr.addstr(h - 2 - len(HELP) + i, lw + 1, fit(" " + ln, w - lw - 2), curses.A_REVERSE)
+        overlay = HELP if self.help else self.report[-(h - 3):]
+        for i, ln in enumerate(overlay):
+            scr.addstr(h - 2 - len(overlay) + i, lw + 1, fit(" " + ln, w - lw - 2), curses.A_REVERSE)
         legend = _(" ⚙ running  ? decide  ✓ review  · delegated ")
         scr.addstr(h - 1, 0, fit(" " + self.msg, w - 1 - width(legend)) + legend, curses.A_DIM)
         scr.refresh()
@@ -580,7 +603,12 @@ class App:
         if key in ("q", "Q"):
             return False
         if key == "?":
-            self.help = not self.help
+            self.help, self.report = not self.help, []
+        elif key == "R":
+            self.help = False
+            self.report = [] if self.report else week_report_lines()
+            if not self.report and not addon_on("timelog"):
+                self.msg = _("Time log is off. Add timelog to ADDONS in .agent-office/config.")
         elif key in ("j", curses.KEY_DOWN):
             self.move(1)
         elif key in ("k", curses.KEY_UP):

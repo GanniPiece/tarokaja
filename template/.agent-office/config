@@ -25,3 +25,9 @@ REMIND_BEFORE_MIN=5
 # With agent_dir, Claude Code may run git, uv, python3, and ls. These commands can read, write, and run
 # anything that you can, also this config file. Set agent_dir only on tickets that you trust.
 AGENT_DIR_ROOTS=
+
+# Optional: add-ons, separated by ",". Each one is a folder in .agent-office/addons/.
+#   timelog  time per ticket for you and the agent: time_me, time_agent, a table in the Daily note
+#   session  Claude Code only: one interactive session per ticket, resumed at the next meeting
+# Empty means no add-on. install.sh --addons timelog,session sets this line.
+ADDONS=

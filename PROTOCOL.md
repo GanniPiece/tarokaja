@@ -4,6 +4,7 @@
 |---|---|---|---|
 | 0.1 | 2026-11-11 | GanniPiece | First version |
 | 0.2 | 2026-11-11 | GanniPiece | Language profiles: headings, marker, breadcrumb words, and folders per language |
+| 0.3 | 2026-11-11 | GanniPiece | Add-ons: timelog and session |
 
 - Defines the vault file layout, ticket schema, state machine, and cadence for Agent Office, independent of any script or UI.
 - Enables third-party tools to read and write the same Obsidian vault without data loss.
@@ -43,6 +44,7 @@ A vault uses one language profile, set by `AO_LANG` in `.agent-office/config`. T
 | Subtasks heading | `## Subtasks` | `## 子任務` |
 | Decisions heading | `## Decisions` | `## Decisions` |
 | Breadcrumbs heading | `## Breadcrumbs` | `## Breadcrumb` |
+| Time heading (`H_TIME`) | `## Time` | `## 時間` |
 | Delegation marker | `(agent)` | `（agent）` |
 | Breadcrumb words | `Stopped:`, `Next:` | `停在：`, `下一步：` |
 | Meetings folder | `Office/meetings` | `Office/會議` |
@@ -79,6 +81,9 @@ Every ticket starts with a YAML frontmatter block between `---` lines.
 | `agent_state` | `decide`, `review`, or empty | Agent or Manager | • Set by the agent when it waits for the manager. <br>• While `agent_state` is non-empty, the agent makes no progress on subtasks. |
 | `links` | YAML list of wikilinks (`[]` when empty) | Manager or Agent | At most 5 wikilinks, such as `"[[Office/outputs/T-001/specs]]"`. |
 | `agent_dir` | Absolute folder path or `~/...` | Manager | • **Optional.** <br>• External folder where the agent may read, write, and run code commands. <br>• Only the manager sets `agent_dir`. |
+| `session` | Session ID (`[A-Za-z0-9-]+`) or empty | `session` add-on | • **Optional.** <br>• Written by the `session` add-on to bind an interactive Claude Code session to the ticket. <br>• `meeting.sh` resumes this session when its transcript exists. |
+| `time_me` | Integer minutes | `timelog` add-on | • **Optional.** <br>• Total manager minutes on the ticket from `.agent-office/logs/time/<id>.jsonl`. <br>• Written when no session or meeting runs on `<id>`. |
+| `time_agent` | Integer minutes | `timelog` add-on | • **Optional.** <br>• Total agent minutes on the ticket from `.agent-office/logs/time/<id>.jsonl`. <br>• Written when no session or meeting runs on `<id>`. |
 
 ### Body sections
 
@@ -210,6 +215,7 @@ Schedulers read settings from `.agent-office/config`. An environment variable wi
 | `PREP_BEFORE_MIN` | `60` | Minutes before `meeting` to write the agenda. |
 | `REMIND_BEFORE_MIN` | `5` | Minutes before `meeting` to send a reminder notification. |
 | `AGENT_DIR_ROOTS` | Empty | • **Optional.**<br>• Folders where `agent_dir` may point, separated by `:`.<br>• Empty turns `agent_dir` off. |
+| `ADDONS` | Empty | • **Optional.** <br>• Comma-separated add-on folder names in `.agent-office/addons/`, such as `timelog,session`. <br>• Empty turns all add-ons off and changes nothing in the core. |
 
 On each scheduler tick (every 5 minutes in the reference `launchd` job), the scheduler checks each open ticket (`Tickets/T-*.md`, not `done` or `dropped`) in this order. Steps 1 and 2 apply to every open ticket. Step 3 applies only to delegated tickets. The scheduler starts sessions in the background and does not wait for them.
 
@@ -236,6 +242,31 @@ Tools coordinate background and interactive sessions through `.agent-office/logs
 | `<id>-last-work.txt`, `<id>-last-prep.txt` | Plain text | Combined standard output and standard error from the latest `work` or `prep` session. |
 | `<id>.reminded-<YYYY-MM-DD HHMM>` | Empty file | Marks that the scheduler sent the reminder for that meeting time. |
 | `<id>.prepped-<YYYY-MM-DD HHMM>` | Empty file | Written by the prep session after it gets the lock. Marks that agenda prep ran for that meeting time. |
+| `time/<id>.jsonl` | JSON Lines (`{"at": <epoch>, "kind": "<kind>", "ref": "<ref>"}`) | • **Optional** (`timelog` add-on). <br>• Time events for `<id>` with `kind` in `seat_start`, `seat_end`, `agent_start`, `agent_tick`, `agent_end`, or `ping`. <br>• `ref` is `bg`, a meeting PID, or a Claude Code session ID. |
+| `status/<id>.jsonl` | JSON Lines (`{"at": <epoch>, "status": "<status>"}`) | • **Optional** (`timelog` add-on). <br>• Appends one line on `tick` when the `status` of `<id>` differs from the last line. |
+| `sessions/<sid>.json` | JSON object (`session`, `ticket`, `surface`, `workspace`, `last_seen`) | • **Optional** (`session` add-on). <br>• Binds Claude Code session `<sid>` to a ticket ID and records the `cmux` surface and workspace. |
+
+## Add-ons
+
+- `ADDONS` in `.agent-office/config` lists enabled add-on folder names in `.agent-office/addons/`, separated by `,`.
+- When `ADDONS` is empty, tools send no events, and `meeting.sh` replaces its shell with `exec`.
+- For each name in `ADDONS`, tools run `.agent-office/addons/<name>/on_event <EVENT> <ID> <REF>` with standard streams redirected to `/dev/null`.
+- A missing or failing `on_event` never stops the caller.
+
+| Event | `<ID>` | `<REF>` | Trigger | Note |
+|---|---|---|---|---|
+| `session_start` | `<id>` | `bg` | Before a background `work` or `prep` session starts | Background sessions export `AO_HEADLESS=1`. |
+| `session_tick` | `<id>` | `bg` | Every 60 seconds while a background session runs | Stops when the session or parent script exits. |
+| `session_end` | `<id>` | `bg` | After a background `work` or `prep` session ends | Sent after the script removes `<id>.pid` and `<id>.kind`. |
+| `meeting_start` | `<id>` | `<pid>` | Before an interactive `meeting.sh` session starts | `<pid>` is the `meeting.sh` PID in `<id>.meeting.pid`. |
+| `meeting_tick` | `<id>` | `<pid>` | Every 60 seconds while `meeting.sh` runs | Stops when `meeting.sh` exits. |
+| `meeting_end` | `<id>` | `<pid>` | When `meeting.sh` exits | With `ADDONS` non-empty, `meeting.sh` does not `exec` the agent, so it can remove `<id>.meeting.pid` and send `meeting_end`. |
+| `tick` | `-` | `-` | Once at the end of each `tick.sh` run | Both `<ID>` and `<REF>` are `-`. |
+
+| Add-on | Files and settings | Behavior | Note |
+|---|---|---|---|
+| `timelog` | • `addons/timelog/on_event` <br>• `addons/timelog/timelog.py` <br>• `logs/time/<id>.jsonl` <br>• `logs/status/<id>.jsonl` | • Maps `session_start`, `session_tick`, and `session_end` to `agent_start`, `agent_tick`, and `agent_end` (`ref` = `bg`). <br>• Maps `meeting_start`, `meeting_tick`, and `meeting_end` to `seat_start`, `ping`, and `seat_end` (`ref` = `<pid>`). <br>• Writes `time_me` and `time_agent` (minutes) into ticket frontmatter when no session or meeting runs on `<id>`. <br>• Writes a table under `H_TIME` (`## Time` in `en`, `## 時間` in `zh-TW`) in `Daily/YYYY-MM-DD.md` for the last 7 days. It replaces only that section. It never creates a missing note. <br>• Records status changes in `logs/status/<id>.jsonl` on `tick`. <br>• `timelog.py week` prints this week's time per ticket (`R` in the TUI). | • Merges overlapping intervals of one kind. <br>• A gap of more than 900 seconds between two events cuts the interval at the earlier event. <br>• An interval without an end event ends at the current time when its last event is 900 seconds old or less. Otherwise it ends at its last event. |
+| `session` | • `addons/session/install.py` <br>• `addons/session/hook.py` <br>• `<VAULT>/.claude/settings.json` <br>• `logs/sessions/<sid>.json` | • `install.py <VAULT>` adds `SessionStart`, `UserPromptSubmit`, `PostToolUse`, and `Stop` hooks to `<VAULT>/.claude/settings.json`, never to `~/.claude`, and backs up an existing file. <br>• `install.py <VAULT> --remove` removes only its hooks. <br>• When `meeting.sh` sets `AO_TICKET` and leaves `AO_HEADLESS` empty, `hook.py` writes `session: <sid>` in the ticket frontmatter and writes `logs/sessions/<sid>.json`. <br>• The next `meeting.sh` passes `--resume <sid>` to `claude` when `~/.claude/projects/*/<sid>.jsonl` exists. <br>• With `timelog` in `ADDONS`, `hook.py` also logs `agent_start`, `agent_tick` (at most once per 60 s), and `agent_end` with `ref` = `<sid>`. | Claude Code (`AGENT_CLI=claude`) only. |
 
 ## Conformance
 

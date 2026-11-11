@@ -26,6 +26,7 @@ MEETINGS="$(cfg MEETINGS_DIR Office/meetings)"
 OUTPUTS="$(cfg OUTPUTS_DIR Office/outputs)"
 RULES="$(cfg RULES_FILE AGENTS.md)"
 WRITE_LANG="$(cfg WRITE_LANG English)"
+ADDONS="$(cfg ADDONS "")"      # enabled add-ons, such as timelog,session (folders in addons/)
 
 # launchd starts jobs with a minimal PATH. Add the usual install folders at the end, so the user's PATH wins.
 export PATH="$PATH:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.bun/bin"
@@ -52,6 +53,37 @@ fm() { # fm FILE KEY -> frontmatter scalar value, "" when missing
 delegated() { # delegated FILE: true when owner is agent, or an open subtask ends with (agent) or （agent）
   [ "$(fm "$1" owner)" = agent ] && return 0
   grep -qE '^[[:space:]]*- \[ \] .*(\(agent\)|（agent）)[[:space:]]*$' "$1"
+}
+
+emit() { # emit EVENT ID REF: run addons/<name>/on_event for each enabled add-on. A failing add-on never stops the caller.
+  [ -n "$ADDONS" ] || return 0
+  local a IFS=,
+  for a in $ADDONS; do
+    case "$a" in ""|*[!A-Za-z0-9_-]*) continue ;; esac
+    [ -x "$AO_DIR/addons/$a/on_event" ] || continue
+    "$AO_DIR/addons/$a/on_event" "$@" > /dev/null 2>&1 < /dev/null || true
+  done
+  return 0
+}
+
+start_ticker() { # start_ticker EVENT ID REF: emit EVENT every 60 s in the background. Sets TICKER to its pid.
+  # It also stops by itself when this script is gone, such as after a kill.
+  TICKER=""
+  [ -n "$ADDONS" ] || return 0
+  ( s=""; trap 'kill $s 2>/dev/null; exit 0' TERM
+    while :; do
+      sleep 60 & s=$!; wait $s
+      kill -0 $$ 2>/dev/null || exit 0   # $$ is the parent script, also in this subshell
+      emit "$@"
+    done ) > /dev/null 2>&1 < /dev/null &
+  TICKER=$!
+}
+
+stop_ticker() { [ -n "${TICKER:-}" ] && { kill "$TICKER"; wait "$TICKER"; } 2>/dev/null; TICKER=""; }
+
+addon_on() { # addon_on NAME: true when the add-on is in ADDONS
+  case ",$ADDONS," in *",$1,"*) return 0 ;; esac
+  return 1
 }
 
 lang_note() { # the sentence that every prompt ends with
@@ -147,23 +179,32 @@ agent_headless() { # agent_headless PROMPT OUTFILE [AGENT_DIR] [STREAM]: one bac
   esac
 }
 
-agent_interactive() { # agent_interactive PROMPT: replace this shell with an interactive session
+agent_interactive() { # agent_interactive PROMPT [--wait] [CLAUDE ARGS...]: replace this shell with an interactive session.
+  # With --wait, run the session and return its exit status instead (add-ons need an event after the session).
+  local prompt="$1" x=exec; shift
+  if [ "${1:-}" = --wait ]; then x=; shift; fi
   case "$AGENT_CLI" in
-    claude) exec claude "$1" --permission-mode acceptEdits --allowedTools "$CLAUDE_TOOLS" --disallowedTools "$CLAUDE_DENIED" ;;
-    codex)  exec codex --sandbox workspace-write -C "$VAULT" "$1" ;;
-    gemini) exec gemini -i "$1" --approval-mode auto_edit ;;
-    agy)    exec agy -i "$1" --mode accept-edits ;;
+    claude) $x claude "$prompt" "$@" --permission-mode acceptEdits --allowedTools "$CLAUDE_TOOLS" --disallowedTools "$CLAUDE_DENIED" ;;
+    codex)  $x codex --sandbox workspace-write -C "$VAULT" "$prompt" ;;
+    gemini) $x gemini -i "$prompt" --approval-mode auto_edit ;;
+    agy)    $x agy -i "$prompt" --mode accept-edits ;;
   esac
 }
 
 run_bg_session() { # run_bg_session ID KIND PROMPT [AGENT_DIR]: run, keep a pid file while it runs
   local id="$1" kind="$2" prompt="$3" dir="${4:-}"
   local out="$LOG_DIR/$id-last-$kind.txt"
+  local rc
   echo "$$" > "$LOG_DIR/$id.pid"
   echo "$kind" > "$LOG_DIR/$id.kind"
+  export AO_HEADLESS=1   # add-on hooks inside the agent see a background session, not the manager
+  emit session_start "$id" bg
+  start_ticker session_tick "$id" bg
   agent_headless "$prompt" "$out" "$dir" "$LOG_DIR/$id-stream.jsonl"
-  local rc=$?
+  rc=$?
+  stop_ticker
   rm -f "$LOG_DIR/$id.pid" "$LOG_DIR/$id.kind"
+  emit session_end "$id" bg
   return $rc
 }
 
