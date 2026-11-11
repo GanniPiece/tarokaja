@@ -726,7 +726,7 @@ def print_board():
 
 def main(argv):
     if not os.path.isdir(TICKETS):
-        sys.stderr.write("Cannot find %s. Run the TUI from an Tarokaja vault.\n" % TICKETS)
+        sys.stderr.write("Cannot find %s. Run the TUI from a Tarokaja vault.\n" % TICKETS)
         return 1
     if "--print" in argv:
         print_board()
