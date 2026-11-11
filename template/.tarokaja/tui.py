@@ -488,11 +488,15 @@ class App:
         self.reload()
 
     def reload(self):
+        cur = self.current() if getattr(self, "rows", None) else None
         self.tickets = load_tickets()
         self.mtime = tickets_mtime()
         self.places = places(self.tickets)
         self.place = min(self.place, len(self.places) - 1)
         self.rows = rows_for(self.tickets, self.places[self.place][0])
+        for i, r in enumerate(self.rows):   # keep the selected ticket when its row moves
+            if cur and r[0] == "t" and r[1]["id"] == cur["id"]:
+                self.row = i
         self.fix_row()
 
     def fix_row(self, step=1):
@@ -633,6 +637,7 @@ class App:
             return
         curses.endwin()
         subprocess.call(["/bin/bash"] + args, cwd=VAULT)
+        self.reload()   # the session may have changed the ticket
         scr.refresh()
         self.msg = _("%s ended") % what
 
