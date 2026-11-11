@@ -3,12 +3,13 @@
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 0.1 | 2026-11-11 | GanniPiece | First version |
+| 0.2 | 2026-11-11 | GanniPiece | Language profiles: headings, marker, breadcrumb words, and folders per language |
 
 - Defines the vault file layout, ticket schema, state machine, and cadence for Agent Office, independent of any script or UI.
 - Enables third-party tools to read and write the same Obsidian vault without data loss.
 - Read [Roles](#roles), [Ticket format](#ticket-format), and [State machine](#state-machine) first.
 - Not in this document:
-  - Agent behavior rules inside a session: [template/AGENTS.md](template/AGENTS.md)
+  - Agent behavior rules inside a session: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md))
   - macOS reference scripts and terminal UI guide: [README.md](README.md)
 
 ## Roles
@@ -16,7 +17,7 @@
 | Role | Actor | Permissions | Note |
 |---|---|---|---|
 | Manager | Human user | • Owns every ticket. <br>• Sets `status` to `done`, `dropped`, or `backlog`. <br>• Sets `owner`, `meeting`, and `agent_dir`. <br>• Marks delegated subtasks with `(agent)`. <br>• Answers decisions and accepts or rejects work. | Only the manager closes a ticket. |
-| Team member | AI agent | • Works in background sessions on open `(agent)` subtasks or `owner: agent` tickets. <br>• Writes output notes under `Office/outputs/<id>/` and agendas under `Office/meetings/`. <br>• Sets `status: waiting` with `agent_state: decide` or `agent_state: review`. <br>• Sets `status: doing` and clears `agent_state` and `waiting_on` after the manager answers all open decisions. | Follows the behavior rules in [template/AGENTS.md](template/AGENTS.md). |
+| Team member | AI agent | • Works in background sessions on open `(agent)` subtasks or `owner: agent` tickets. <br>• Writes output notes under `Office/outputs/<id>/` and agendas under `Office/meetings/`. <br>• Sets `status: waiting` with `agent_state: decide` or `agent_state: review`. <br>• Sets `status: doing` and clears `agent_state` and `waiting_on` after the manager answers all open decisions. | Follows the behavior rules in [locale/en/AGENTS.md](locale/en/AGENTS.md). |
 
 ## Vault layout
 
@@ -31,6 +32,25 @@
 | `.agent-office/config` | Manager | `KEY=VALUE` settings for cadence and `AGENT_CLI`. | The agent must never edit `.agent-office/`. |
 | `.agent-office/logs/` | Tooling | Lock directories, PID files, session logs, and timestamps. | Runtime state for schedulers and UIs. |
 | `private/`, `.obsidian/`, `.trash/` | Manager and Obsidian | Private notes, editor configuration, and trash. | The agent must never read or write these paths. |
+
+## Language profiles
+
+A vault uses one language profile, set by `AO_LANG` in `.agent-office/config`. The profile sets the words in this document that are shown in the `en` form. The reference values are in `template/.agent-office/profiles/<lang>.conf`.
+
+| Item | `en` | `zh-TW` |
+|---|---|---|
+| Done heading | `## Done when` | `## 完成條件` |
+| Subtasks heading | `## Subtasks` | `## 子任務` |
+| Decisions heading | `## Decisions` | `## Decisions` |
+| Breadcrumbs heading | `## Breadcrumbs` | `## Breadcrumb` |
+| Delegation marker | `(agent)` | `（agent）` |
+| Breadcrumb words | `Stopped:`, `Next:` | `停在：`, `下一步：` |
+| Meetings folder | `Office/meetings` | `Office/會議` |
+| Outputs folder | `Office/outputs` | `Office/產出` |
+
+- A tool writes the words of the vault's profile.
+- A tool reads both delegation markers in every profile.
+- A tool accepts the `en` headings in every profile, so a ticket written with English headings still works.
 
 ## Ticket format
 
@@ -67,7 +87,7 @@ After the closing `---` of the frontmatter, the ticket body contains `# <title>`
 | Section | Content | Note |
 |---|---|---|
 | `## Done when` | One or more sentences that state the acceptance condition. | Required before the agent can set `agent_state: review`. |
-| `## Scope` | Extra path or action limits for this ticket. | • **Optional.** <br>• Can only make the vault rules in [template/AGENTS.md](template/AGENTS.md) stricter. |
+| `## Scope` | Extra path or action limits for this ticket. | • **Optional.** <br>• Can only make the vault rules in [locale/en/AGENTS.md](locale/en/AGENTS.md) stricter. |
 | `## Subtasks` | Markdown task list (`- [ ] ...` and `- [x] ...`). | Controls subtask delegation. |
 | `## Decisions` | Decision blocks (`### D<n> ...`). | Empty when no decision exists. |
 | `## Breadcrumbs` | Reverse-chronological log of session stops and status updates. | Newest entry sits at the top. |
@@ -77,7 +97,7 @@ After the closing `---` of the frontmatter, the ticket body contains `# <title>`
 The manager delegates a ticket to the agent when at least one condition holds:
 
 - Frontmatter `owner` equals `agent`.
-- `## Subtasks` has an open task line that ends with ` (agent)`, matching the regular expression `^[[:space:]]*- \[ \] .*\(agent\)[[:space:]]*$`.
+- `## Subtasks` has an open task line that ends with ` (agent)` or `（agent）`, matching the regular expression `^[[:space:]]*- \[ \] .*(\(agent\)|（agent）)[[:space:]]*$`.
 
 Subtasks without ` (agent)` belong to the manager unless `owner` equals `agent`. When the agent finishes a delegated subtask, it marks `- [x]` and keeps the trailing ` (agent)` text.
 
@@ -223,8 +243,9 @@ An implementation conforms to the Agent Office v0.1 protocol when it satisfies a
 
 1. Preserves the vault paths in [Vault layout](#vault-layout) and never reads or writes `private/`, `.obsidian/`, or `.trash/`.
 2. Reads and writes ticket frontmatter and body sections as defined in [Ticket format](#ticket-format), sets `updated` to `YYYY-MM-DD` on every write, and never deletes a ticket file.
-3. Detects delegation from `owner: agent` or an open `- [ ] ... (agent)` subtask line under `## Subtasks`.
+3. Detects delegation from `owner: agent` or an open `- [ ] ... (agent)` or `- [ ] ...（agent）` subtask line under the subtasks heading.
+8. Reads and writes the headings, marker, breadcrumb words, and folders of the vault's [language profile](#language-profiles).
 4. Enforces the actor permissions in [State machine](#state-machine) for `done`, `dropped`, `backlog`, `owner`, `meeting`, and `agent_dir`. Clears `agent_state` and `waiting_on` whenever `status` is not `waiting`.
 5. Checks that `agent_dir` is an existing absolute directory (after expanding a leading `~/`) inside one of the `AGENT_DIR_ROOTS` folders before passing it to an agent CLI. The agent can edit tickets, so the allowlist must live in a file that the agent cannot edit.
 6. Runs scheduled reminders, meeting prep, and background work sessions according to [Cadence](#cadence) and coordinates concurrent sessions with `<id>.lock/` and `<id>.pid`.
-7. Instructs every agent session to follow [template/AGENTS.md](template/AGENTS.md) and passes the current `YYYY-MM-DD HH:MM` timestamp for breadcrumbs.
+7. Instructs every agent session to follow [locale/en/AGENTS.md](locale/en/AGENTS.md) and passes the current `YYYY-MM-DD HH:MM` timestamp for breadcrumbs.

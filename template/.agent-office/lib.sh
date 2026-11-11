@@ -5,19 +5,27 @@ AO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT="$(cd "$AO_DIR/.." && pwd)"
 LOG_DIR="$AO_DIR/logs"
 TICKETS="$VAULT/Tickets"
-MEETINGS="Office/meetings"
 mkdir -p "$LOG_DIR"
 
-# Config: environment variables win, then .agent-office/config.
+# Settings come from, in this order: the environment, .agent-office/config,
+# the language profile (.agent-office/profiles/<AO_LANG>.conf), then the default.
+_conf() { # _conf FILE KEY -> the last value of KEY in FILE
+  [ -f "$1" ] && sed -n "s/^$2=//p" "$1" | tail -n 1
+}
 cfg() { # cfg KEY DEFAULT
   local v=""
   eval "v=\"\${$1:-}\""
-  if [ -z "$v" ] && [ -f "$AO_DIR/config" ]; then
-    v="$(sed -n "s/^$1=//p" "$AO_DIR/config" | tail -n 1)"
-  fi
+  [ -n "$v" ] || v="$(_conf "$AO_DIR/config" "$1")"
+  [ -n "$v" ] || [ "$1" = AO_LANG ] || v="$(_conf "$AO_DIR/profiles/$AO_LANG.conf" "$1")"
   echo "${v:-$2}"
 }
+AO_LANG="$(cfg AO_LANG en)"
+case "$AO_LANG" in en|zh-TW) ;; *) AO_LANG=en ;; esac
 AGENT_CLI="$(cfg AGENT_CLI claude)"
+MEETINGS="$(cfg MEETINGS_DIR Office/meetings)"
+OUTPUTS="$(cfg OUTPUTS_DIR Office/outputs)"
+RULES="$(cfg RULES_FILE AGENTS.md)"
+WRITE_LANG="$(cfg WRITE_LANG English)"
 
 # launchd starts jobs with a minimal PATH. Add the usual install folders at the end, so the user's PATH wins.
 export PATH="$PATH:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.bun/bin"
@@ -41,9 +49,13 @@ fm() { # fm FILE KEY -> frontmatter scalar value, "" when missing
   ' "$1"
 }
 
-delegated() { # delegated FILE: true when owner is agent, or an open subtask ends with (agent)
+delegated() { # delegated FILE: true when owner is agent, or an open subtask ends with (agent) or （agent）
   [ "$(fm "$1" owner)" = agent ] && return 0
-  grep -qE '^[[:space:]]*- \[ \] .*\(agent\)[[:space:]]*$' "$1"
+  grep -qE '^[[:space:]]*- \[ \] .*(\(agent\)|（agent）)[[:space:]]*$' "$1"
+}
+
+lang_note() { # the sentence that every prompt ends with
+  echo "Rules file: $RULES. Write ticket text and your final report in $WRITE_LANG. Ticket headings, the delegation marker, and breadcrumb words follow the rules file."
 }
 
 to_epoch() { # to_epoch "YYYY-MM-DD HH:MM" -> seconds, "" when the value is not valid
@@ -92,14 +104,37 @@ CLAUDE_DIR_TOOLS="Bash(git:*),Bash(uv:*),Bash(python3:*),Bash(ls:*)"
 # Edit rules cover all file-editing tools (Claude Code ignores Write(path) deny rules).
 CLAUDE_DENIED="Read(./private/**),Edit(./private/**),Read(./.obsidian/**),Edit(./.obsidian/**),Read(./.trash/**),Edit(./.trash/**),Edit(./.agent-office/**)"
 
-agent_headless() { # agent_headless PROMPT OUTFILE [AGENT_DIR]: one background session. Returns the agent exit status.
-  local prompt="$1" out="$2" dir="${3:-}"
+stream_result() { # stream_result STREAM: the result text of the last "result" event in a stream-json log
+  python3 -I -c 'import json,sys
+res = None
+for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
+    try: ev = json.loads(line)
+    except ValueError: continue
+    if isinstance(ev, dict) and ev.get("type") == "result":
+        res = ev.get("result")
+        if not res:   # an error result can have no text, such as subtype error_max_turns
+            res = "Session ended without a result: %s" % (ev.get("subtype") or "unknown")
+            errs = ev.get("errors")
+            if errs: res += " (%s)" % "; ".join(str(e) for e in errs)
+if res is None: sys.exit(1)
+sys.stdout.write(str(res))' "$1" 2>/dev/null
+}
+
+agent_headless() { # agent_headless PROMPT OUTFILE [AGENT_DIR] [STREAM]: one background session. Returns the agent exit status.
+  local prompt="$1" out="$2" dir="${3:-}" stream="${4:-$2.jsonl}"
   case "$AGENT_CLI" in
     claude)
-      local tools="$CLAUDE_TOOLS"
+      # stream-json keeps a live log (the TUI and other tools read it). OUTFILE gets the final answer.
+      local tools="$CLAUDE_TOOLS" rc
       if [ -n "$dir" ]; then tools="$tools,$CLAUDE_DIR_TOOLS"; set -- --add-dir "$dir"; else set --; fi
-      claude -p "$prompt" "$@" --permission-mode acceptEdits \
-        --allowedTools "$tools" --disallowedTools "$CLAUDE_DENIED" --max-turns 40 > "$out" 2>&1 ;;
+      claude -p "$prompt" "$@" --output-format stream-json --verbose --permission-mode acceptEdits \
+        --allowedTools "$tools" --disallowedTools "$CLAUDE_DENIED" --max-turns 40 > "$stream" 2> "$out.err"
+      rc=$?
+      if ! stream_result "$stream" > "$out"; then
+        tail -n 20 "$out.err" > "$out"   # no result event: keep the error text for the manager
+      fi
+      rm -f "$out.err"
+      return $rc ;;
     codex)
       if [ -n "$dir" ]; then set -- --add-dir "$dir"; else set --; fi
       codex exec --skip-git-repo-check --sandbox workspace-write -C "$VAULT" "$@" "$prompt" > "$out" 2>&1 ;;
@@ -126,7 +161,7 @@ run_bg_session() { # run_bg_session ID KIND PROMPT [AGENT_DIR]: run, keep a pid 
   local out="$LOG_DIR/$id-last-$kind.txt"
   echo "$$" > "$LOG_DIR/$id.pid"
   echo "$kind" > "$LOG_DIR/$id.kind"
-  agent_headless "$prompt" "$out" "$dir"
+  agent_headless "$prompt" "$out" "$dir" "$LOG_DIR/$id-stream.jsonl"
   local rc=$?
   rm -f "$LOG_DIR/$id.pid" "$LOG_DIR/$id.kind"
   return $rc

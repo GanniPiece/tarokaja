@@ -3,13 +3,14 @@
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 0.1 | 2026-11-11 | GanniPiece | First version |
+| 0.2 | 2026-11-11 | GanniPiece | Language profiles (`en`, `zh-TW`), `install.sh --lang` and `--link`, stream-json log for Claude Code |
 
 - Agent Office runs an AI agent as a team member inside an Obsidian vault on macOS.
 - Tickets are plain Markdown notes, work covers notes and research in addition to code, and only the manager closes a ticket.
 - Start at [Installation](#installation) and [First run](#first-run) to set up a vault and complete ticket `T-001`.
 - Not in this document:
   - Data format and state machine specification for tool authors: [PROTOCOL.md](PROTOCOL.md)
-  - Agent session rules inside a vault: [template/AGENTS.md](template/AGENTS.md)
+  - Agent session rules inside a vault: [locale/en/AGENTS.md](locale/en/AGENTS.md) (`zh-TW`: [locale/zh-TW/AGENTS.md](locale/zh-TW/AGENTS.md))
 
 ## Concept
 
@@ -44,7 +45,7 @@ flowchart LR
 
 1. Run `install.sh` to copy the vault template into a new folder or an existing Obsidian vault:
    ```bash
-   ./install.sh /path/to/vault --agent claude --schedule
+   ./install.sh /path/to/vault --agent claude --lang en --schedule
    ```
 2. Open `/path/to/vault` as a vault in Obsidian.
 3. Open the vault folder in `cmux`:
@@ -60,11 +61,13 @@ flowchart LR
 |---|---|---|
 | `VAULT_DIR` | | • Target folder path. <br>• Existing files in the folder stay untouched. |
 | `--agent <cli>` | `claude` | • **Optional.** <br>• Sets `AGENT_CLI` in `.agent-office/config` to `claude`, `codex`, `agy`, or `gemini`. |
+| `--lang <lang>` | `en` | • **Optional.**<br>• Sets the language profile: `en` or `zh-TW`. See [Language profiles](#language-profiles).<br>• A reinstall without `--lang` keeps the language in `config`. |
+| `--link` | Off | • **Optional.**<br>• Links the scripts to this repo instead of copying them. See [Development](#development). |
 | `--schedule` | Off | • **Optional.** <br>• Loads the `launchd` job `local.agent-office.tick` to run `.agent-office/tick.sh` every 5 minutes. |
 
 ## First run
 
-`install.sh` creates `Tickets/T-001 Try Agent Office.md` with `status: doing` and one subtask marked `(agent)`.
+`install.sh` creates the example ticket `T-001` (`Tickets/T-001 Try Agent Office.md` for `en`) with `status: doing` and one subtask marked `(agent)`.
 
 1. Select `T-001 Try Agent Office` in the TUI.
 2. Press `w` in the TUI, or run `.agent-office/work.sh T-001`, to start one background work session.
@@ -108,7 +111,7 @@ flowchart LR
 
 | Script | Command | Action | Note |
 |---|---|---|---|
-| `work.sh` | `.agent-office/work.sh <ID>` | Runs one background work session on ticket `<ID>`. | • Requires `status: doing`, empty `agent_state`, and an open `(agent)` subtask or `owner: agent`. <br>• Skips while another session on `<ID>` runs. A lock left by a crash is removed. <br>• Writes session output to `.agent-office/logs/<ID>-last-work.txt` and epoch seconds to `<ID>.last-work`. |
+| `work.sh` | `.agent-office/work.sh <ID>` | Runs one background work session on ticket `<ID>`. | • Requires `status: doing`, empty `agent_state`, and an open `(agent)` subtask or `owner: agent`. <br>• Skips while another session on `<ID>` runs. A lock left by a crash is removed. <br>• Writes the final answer of the agent to `.agent-office/logs/<ID>-last-work.txt` and epoch seconds to `<ID>.last-work`.<br>• With `claude`, also writes the live event log to `.agent-office/logs/<ID>-stream.jsonl`. |
 | `prep.sh` | `.agent-office/prep.sh <ID>` | Runs one background session to write the meeting agenda at `Office/meetings/<YYYY-MM-DD HHMM> <ID>.md`. | • Requires `meeting` on the ticket. <br>• Skips while another session on `<ID>` runs. |
 | `meeting.sh` | • `.agent-office/meeting.sh <ID>`. <br>• `.agent-office/meeting.sh <ID> --talk`. | Runs an interactive agent session for a meeting or an ad-hoc talk. | • Tells the agent not to edit the ticket body while a background session runs on `<ID>`.<br>• While a meeting runs, no background session starts on `<ID>`. |
 | `tick.sh` | `.agent-office/tick.sh` | • Sends meeting reminders and runs `prep.sh` for every open ticket with a `meeting`.<br>• Starts `work.sh` for delegated tickets. | • `launchd` runs this script every 5 minutes when installed with `--schedule`.<br>• Sessions start in the background, so a long session does not delay a reminder.<br>• `prep.sh` runs one time per meeting, also when it fails. |
@@ -120,6 +123,7 @@ The scripts read `.agent-office/config`. An environment variable with the same n
 
 | Key | Default | Note |
 |---|---|---|
+| `AO_LANG` | `en` | Language profile: `en` or `zh-TW`. |
 | `AGENT_CLI` | `claude` | Agent CLI for all sessions: `claude`, `codex`, `agy`, or `gemini`. |
 | `WORK_EVERY_HOURS` | `4` | Minimum hours between scheduled `work.sh` sessions on the same ticket. |
 | `WORK_HOURS_FROM` | `9` | Start hour in local 24-hour time (inclusive) for scheduled `work.sh` sessions in `tick.sh`. |
@@ -127,6 +131,26 @@ The scripts read `.agent-office/config`. An environment variable with the same n
 | `PREP_BEFORE_MIN` | `60` | Minutes before `meeting` when `tick.sh` runs `prep.sh` if the agenda file does not exist yet. |
 | `REMIND_BEFORE_MIN` | `5` | Minutes before `meeting` when `tick.sh` sends a one-time reminder notification. |
 | `AGENT_DIR_ROOTS` | Empty | • **Optional.**<br>• Folders where `agent_dir` may point, separated by `:`, such as `~/code:~/projects`.<br>• Empty turns `agent_dir` off. |
+
+## Language profiles
+
+A profile sets the words that the scripts, the TUI, and the agent use in tickets. `AO_LANG` in `.agent-office/config` selects it. The files are `.agent-office/profiles/<lang>.conf`.
+
+| Key | `en` | `zh-TW` | Note |
+|---|---|---|---|
+| `H_DONE` | `## Done when` | `## 完成條件` | |
+| `H_SUBTASKS` | `## Subtasks` | `## 子任務` | |
+| `H_DECISIONS` | `## Decisions` | `## Decisions` | |
+| `H_CRUMBS` | `## Breadcrumbs` | `## Breadcrumb` | |
+| `MARK` | `(agent)` | `（agent）` | Both markers count as delegated in every profile. |
+| `CRUMB_STOP`, `CRUMB_NEXT` | `Stopped:`, `Next:` | `停在：`, `下一步：` | |
+| `MEETINGS_DIR` | `Office/meetings` | `Office/會議` | |
+| `OUTPUTS_DIR` | `Office/outputs` | `Office/產出` | |
+| `RULES_FILE` | `AGENTS.md` | `AGENTS.md` | `install.sh` copies the rules of the profile language. |
+| `WRITE_LANG` | `English` | `Traditional Chinese (Taiwan)…` | The language of ticket text and of the final report |
+
+- You can set each key in `.agent-office/config` too. Order: environment variable, `config`, profile, built-in default.
+- Example: a vault that keeps its meeting notes in another folder sets `MEETINGS_DIR=Agent Office/會議` in `config`.
 
 ## Schedule
 
@@ -150,9 +174,24 @@ The scripts read `.agent-office/config`. An environment variable with the same n
 | Agent CLI | Access | Limit | Note |
 |---|---|---|---|
 | `claude` | • Edits files with `--permission-mode acceptEdits`. <br>• Uses `--allowedTools "Read,Edit,Write,Glob,Grep,WebSearch,WebFetch"`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>` and enables `Bash(git:*)`, `Bash(uv:*)`, `Bash(python3:*)`, and `Bash(ls:*)`. | • `--disallowedTools` blocks read and edit of `private/`, `.obsidian/`, and `.trash/`, and edit of `.agent-office/`. <br>• Caps headless sessions at `--max-turns 40`. | • With `agent_dir`, these commands can read, write, and run anything that you can, also `private/` and `.agent-office/config`.<br>• Set `agent_dir` only on tickets that you trust. |
-| `codex` | • Runs in the vault with `-C "$VAULT"` and `--skip-git-repo-check`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>`. | • Restricts writes with the `--sandbox workspace-write` sandbox. <br>• Relies on [template/AGENTS.md](template/AGENTS.md) for path rules. | The sandbox lets `codex` write any file in the vault, also `.agent-office/config`. |
-| `agy` | • Edits files with `--mode accept-edits`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>`. | • Stops headless sessions at `--print-timeout 1800s`. <br>• Relies on [template/AGENTS.md](template/AGENTS.md) for path rules. | Cannot run shell commands in headless mode. |
-| `gemini` | • Edits files with `--approval-mode auto_edit` and `--skip-trust`. <br>• With `agent_dir` in headless mode, adds `--include-directories <agent_dir>`. | Relies on [template/AGENTS.md](template/AGENTS.md) for path rules. | Not verified with a real `gemini` CLI. |
+| `codex` | • Runs in the vault with `-C "$VAULT"` and `--skip-git-repo-check`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>`. | • Restricts writes with the `--sandbox workspace-write` sandbox. <br>• Relies on [locale/en/AGENTS.md](locale/en/AGENTS.md) for path rules. | The sandbox lets `codex` write any file in the vault, also `.agent-office/config`. |
+| `agy` | • Edits files with `--mode accept-edits`. <br>• With `agent_dir` in headless mode, adds `--add-dir <agent_dir>`. | • Stops headless sessions at `--print-timeout 1800s`. <br>• Relies on [locale/en/AGENTS.md](locale/en/AGENTS.md) for path rules. | Cannot run shell commands in headless mode. |
+| `gemini` | • Edits files with `--approval-mode auto_edit` and `--skip-trust`. <br>• With `agent_dir` in headless mode, adds `--include-directories <agent_dir>`. | Relies on [locale/en/AGENTS.md](locale/en/AGENTS.md) for path rules. | Not verified with a real `gemini` CLI. |
+
+## Development
+
+1. Clone this repo and check out the branch that you want to use, such as `dev`.
+2. Install with links, so the vault runs the code of your checkout:
+   ```bash
+   ./install.sh /path/to/vault --lang zh-TW --link
+   ```
+3. Edit the code in the repo. The vault uses the change at once.
+
+| Item | Behavior | Note |
+|---|---|---|
+| Linked files | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `tick.sh`, `tui.py`, `profiles/` | Each one is a symlink into `template/.agent-office/` of the repo. |
+| Local files | `config`, `logs/` | Never in the repo |
+| Changed scripts | A script in the vault that differs from the repo is kept as `<name>.bak`. | A script that is the same as the repo is replaced without a backup. |
 
 ## Tests
 
@@ -162,7 +201,7 @@ Run the test suite from the repository root:
 bash tests/run.sh
 ```
 
-`tests/run.sh` runs in temporary directories with stub `claude`, `codex`, `cmux`, and `osascript` commands. It never calls a real agent.
+`tests/run.sh` runs in temporary directories with stub `claude`, `codex`, `cmux`, and `osascript` commands. It never calls a real agent. It also draws the TUI in a pseudo-terminal in `en` and `zh-TW`.
 
 ## Troubleshooting
 

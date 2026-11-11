@@ -15,16 +15,16 @@ echo "$$" > "$LOG_DIR/$id.meeting.pid"   # exec keeps this pid, so tick.sh and t
 
 if [ "${2:-}" = --talk ]; then
   log "talk start $id"
-  agent_interactive "Follow \"Talking with the manager\" in AGENTS.md. You are the team member for $id. Ticket: $ticket. The time now is $(now_min).$running Read the ticket, then wait for what the manager says."
+  agent_interactive "Follow \"$(cfg SEC_TALK 'Talking with the manager')\" in $RULES. You are the team member for $id. Ticket: $ticket. The time now is $(now_min).$running $(lang_note) Read the ticket, then wait for what the manager says."
 fi
 
 meeting="$(fm "$f" meeting)"
 if [ -n "$meeting" ]; then
   agenda="$MEETINGS/$(echo "$meeting" | tr -d ':') $id.md"
   if [ -f "$agenda" ]; then ctx="The agenda is \"$agenda\"."
-  else ctx="There is no agenda. Write one to \"$agenda\" first, as \"Meeting prep\" in AGENTS.md says."; fi
+  else ctx="There is no agenda. Write one to \"$agenda\" first, as \"$(cfg SEC_PREP 'Meeting prep')\" in $RULES says."; fi
 else
   ctx="The ticket has no meeting time and no agenda. Report from the ticket."
 fi
 log "meeting start $id"
-agent_interactive "Follow \"During the meeting\" in AGENTS.md and hold the meeting for $id. Ticket: $ticket. $ctx The time now is $(now_min).$running Report progress first. Then ask the manager for one decision at a time."
+agent_interactive "Follow \"$(cfg SEC_MEETING 'During the meeting')\" in $RULES and hold the meeting for $id. Ticket: $ticket. $ctx The time now is $(now_min).$running $(lang_note) Report progress first. Then ask the manager for one decision at a time."

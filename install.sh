@@ -1,25 +1,32 @@
 #!/bin/bash
-# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--schedule]
+# install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--link] [--schedule]
 #
 # Copies the Agent Office template into VAULT_DIR. VAULT_DIR can be a new folder or an
 # existing Obsidian vault. Files that exist already are never overwritten.
 #   --agent     the agent CLI for all sessions (Default: claude)
+#   --lang      the language profile: ticket headings, markers, folders, rules (Default: en)
+#   --link      link the scripts to this repo instead of copying them, so the vault runs
+#               the repo's code (for development). config and logs stay in the vault.
 #   --schedule  install the launchd job that runs .agent-office/tick.sh every 5 minutes
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-vault="" agent="" schedule=0
+vault="" agent="" lang="" link=0 schedule=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --agent) [ $# -ge 2 ] || { echo "--agent needs a value" >&2; exit 2; }; agent="$2"; shift 2 ;;
     --agent=*) agent="${1#--agent=}"; shift ;;
+    --lang) [ $# -ge 2 ] || { echo "--lang needs a value" >&2; exit 2; }; lang="$2"; shift 2 ;;
+    --lang=*) lang="${1#--lang=}"; shift ;;
+    --link) link=1; shift ;;
     --schedule) schedule=1; shift ;;
-    -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "Unknown option: $1" >&2; exit 2 ;;
     *) vault="$1"; shift ;;
   esac
 done
-[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--schedule]" >&2; exit 2; }
+[ -n "$vault" ] || { echo "Usage: install.sh VAULT_DIR [--agent claude|codex|agy|gemini] [--lang en|zh-TW] [--link] [--schedule]" >&2; exit 2; }
+case "${lang:-en}" in en|zh-TW) ;; *) echo "--lang must be en or zh-TW" >&2; exit 2 ;; esac
 case "${agent:-claude}" in claude|codex|agy|gemini) ;; *) echo "--agent must be claude, codex, agy, or gemini" >&2; exit 2 ;; esac
 
 ok()   { echo "  ok    $*"; }
@@ -36,12 +43,40 @@ vault="$(cd "$vault" && pwd)"
 fresh=0
 [ -f "$vault/.agent-office/config" ] || fresh=1
 echo "Installing into $vault"
+# The language of a reinstall: --lang, else the one in config, else en.
+if [ -z "$lang" ] && [ "$fresh" = 0 ]; then
+  lang="$(sed -n 's/^AO_LANG=//p' "$vault/.agent-office/config" | tail -n 1)"
+fi
+case "${lang:-en}" in en|zh-TW) lang="${lang:-en}" ;; *) lang=en ;; esac
 # cp -n: never overwrite a file that exists. The trailing /. copies dotfiles too.
 cp -Rn "$HERE/template/." "$vault/" 2>/dev/null || true
-chmod +x "$vault/.agent-office/"*.sh "$vault/.agent-office/tui.py"
+cp -Rn "$HERE/locale/$lang/." "$vault/" 2>/dev/null || true
+if grep -q '^AO_LANG=' "$vault/.agent-office/config"; then
+  sed -i '' "s/^AO_LANG=.*/AO_LANG=$lang/" "$vault/.agent-office/config"
+else
+  printf '\n# Language profile: en or zh-TW\nAO_LANG=%s\n' "$lang" >> "$vault/.agent-office/config"   # config from an older version
+fi
+ok "language profile: $lang"
+
+if [ "$link" = 1 ]; then
+  # Replace the scripts and profiles with links to this repo. config and logs stay in the vault.
+  for name in lib.sh work.sh prep.sh meeting.sh tick.sh tui.py profiles; do
+    dst="$vault/.agent-office/$name"
+    src="$HERE/template/.agent-office/$name"
+    if [ -L "$dst" ]; then rm -f "$dst"
+    elif [ -e "$dst" ] && diff -rq "$dst" "$src" >/dev/null 2>&1; then rm -rf "$dst"   # same as the repo: no backup needed
+    elif [ -e "$dst" ]; then rm -rf "$dst.bak"; mv "$dst" "$dst.bak"; fi
+    ln -s "$src" "$dst"
+  done
+  ok "scripts linked to $HERE/template/.agent-office"
+fi
+# chmod follows symlinks, so only change the modes of copied scripts, never the repo's files.
+for f in "$vault/.agent-office/"*.sh "$vault/.agent-office/tui.py"; do
+  [ -L "$f" ] || chmod +x "$f"
+done
 
 today="$(date +%F)"
-t1="$vault/Tickets/T-001 Try Agent Office.md"
+for t1 in "$vault/Tickets/T-001 "*.md; do :; done   # the example ticket of the language
 if [ -f "$t1" ] && grep -q '^created: 2026-01-01$' "$t1"; then
   sed -i '' -e "s/^created: 2026-01-01$/created: $today/" -e "s/^updated: 2026-01-01$/updated: $today/" \
     -e "s/^- 2026-01-01 09:00 · /- $today $(date +%H:%M) · /" "$t1"

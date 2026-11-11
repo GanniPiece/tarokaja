@@ -23,7 +23,7 @@ require_agent
 run() {
   cd "$VAULT" || exit 1
   log "work start $id ($AGENT_CLI)"
-  local prompt="Follow AGENTS.md and run one work session on $id. Ticket: Tickets/$(basename "$f"). The time now is $(now_min). Use this time for breadcrumbs. Work only on open subtasks marked (agent), unless the ticket has owner: agent. Before you stop, report in three lines or fewer what you did and where you stopped."
+  local prompt="Follow \"$(cfg SEC_WORK 'Work session')\" in $RULES and run one work session on $id. Ticket: Tickets/$(basename "$f"). The time now is $(now_min). Use this time for breadcrumbs. Work only on open subtasks marked $(cfg MARK '(agent)'), unless the ticket has owner: agent. Write outputs under $OUTPUTS/$id/. $(lang_note) Before you stop, report in three lines or fewer what you did and where you stopped."
   [ -n "$dir" ] && prompt="$prompt Work folder (agent_dir): $dir."
   run_bg_session "$id" work "$prompt" "$dir"
   local rc=$?
