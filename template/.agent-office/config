@@ -1,0 +1,21 @@
+# Agent Office settings. The scripts and the TUI read this file.
+# An environment variable with the same name wins over the value here.
+
+# The agent CLI for all sessions: claude (Claude Code), codex (Codex CLI),
+# agy (Google Antigravity CLI), or gemini (Gemini CLI, needs a paid Gemini API key or Vertex AI)
+AGENT_CLI=claude
+
+# Background work sessions (tick.sh)
+WORK_EVERY_HOURS=4
+WORK_HOURS_FROM=9
+WORK_HOURS_TO=20
+
+# Meetings: write the agenda this many minutes before, and notify this many minutes before
+PREP_BEFORE_MIN=60
+REMIND_BEFORE_MIN=5
+
+# Optional: folders where a ticket's agent_dir may point, separated by ":".
+# Empty means agent_dir is off. Example: AGENT_DIR_ROOTS=~/code:~/projects
+# With agent_dir, Claude Code may run git, uv, python3, and ls. These commands can read, write, and run
+# anything that you can, also this config file. Set agent_dir only on tickets that you trust.
+AGENT_DIR_ROOTS=

@@ -1,0 +1,6 @@
+#!/bin/bash
+set -u
+if [ -n "${STUB_NOTIFY_LOG:-}" ]; then
+  printf '%s %s\n' "$(basename "$0")" "$*" >> "$STUB_NOTIFY_LOG"
+fi
+exit 0

@@ -1,0 +1,64 @@
+filters:
+  and:
+    - file.inFolder("Tickets")
+    - file.ext == "md"
+properties:
+  note.id:
+    displayName: ID
+  note.status:
+    displayName: Status
+  note.project:
+    displayName: Project
+  note.agent_state:
+    displayName: Agent waits for
+  note.waiting_on:
+    displayName: Waiting on
+  note.meeting:
+    displayName: Next meeting
+  note.updated:
+    displayName: Updated
+views:
+  - type: table
+    name: Needs me
+    filters:
+      and:
+        - note.agent_state != ""
+        - note.agent_state != null
+    order:
+      - id
+      - file.name
+      - agent_state
+      - waiting_on
+      - meeting
+    sort:
+      - property: meeting
+        direction: ASC
+  - type: table
+    name: Open
+    filters:
+      and:
+        - note.status != "done"
+        - note.status != "dropped"
+    groupBy:
+      property: status
+      direction: ASC
+    order:
+      - id
+      - file.name
+      - project
+      - waiting_on
+      - meeting
+      - updated
+    sort:
+      - property: updated
+        direction: DESC
+  - type: table
+    name: Closed
+    filters:
+      or:
+        - note.status == "done"
+        - note.status == "dropped"
+    order:
+      - id
+      - file.name
+      - updated

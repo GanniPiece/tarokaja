@@ -1,0 +1,4 @@
+.agent-office/logs/
+.obsidian/workspace*.json
+.trash/
+private/

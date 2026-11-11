@@ -1,0 +1,60 @@
+#!/bin/bash
+set -u
+
+cmd="$(basename "$0")"
+if [ -n "${STUB_AGENT_LOG:-}" ]; then
+  {
+    printf 'CMD: %s\n' "$cmd"
+    printf 'ARGS: %s\n' "$*"
+    for arg in "$@"; do
+      printf 'ARG: %s\n' "$arg"
+    done
+  } >> "$STUB_AGENT_LOG"
+fi
+
+prompt=""
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "-p" ]; then
+    prompt="$arg"
+    break
+  fi
+  prev="$arg"
+done
+
+if [ -z "$prompt" ]; then
+  for arg in "$@"; do
+    case "$arg" in
+      *Ticket:*|*T-[0-9][0-9][0-9]*) prompt="$arg" ;;
+    esac
+  done
+fi
+
+if [ -n "$prompt" ]; then
+  tid="$(printf '%s\n' "$prompt" | sed -n 's/.*\(T-[0-9][0-9][0-9]\).*/\1/p' | head -n 1)"
+  if [ -n "$tid" ]; then
+    search_dir="${VAULT:-$PWD}"
+    for f in "$search_dir/Tickets/$tid "*.md "$PWD/Tickets/$tid "*.md; do
+      if [ -f "$f" ]; then
+        awk '
+          BEGIN { added=0; in_bc=0 }
+          /^## / {
+            if (in_bc && !added) {
+              print "- 2026-01-01 10:00 · [agent] Stopped: stub. Next: stub."
+              added=1
+            }
+            in_bc = (tolower($0) ~ /^## breadcrumbs[ \t]*$/)
+          }
+          { print }
+          END {
+            if (in_bc && !added) {
+              print "- 2026-01-01 10:00 · [agent] Stopped: stub. Next: stub."
+            }
+          }
+        ' "$f" > "$f.stub.tmp" && mv "$f.stub.tmp" "$f"
+        break
+      fi
+    done
+  fi
+  echo "stub done"
+fi
