@@ -96,6 +96,11 @@ flowchart LR
 | `--link` | Off | • **Optional.**<br>• Links the scripts to this repo instead of copying them. See [Development](#development). |
 | `--schedule` | Off | • **Optional.** <br>• Loads the `launchd` job `local.tarokaja.tick` to run `.tarokaja/tick.sh` every 5 minutes. |
 
+- `install.sh` never overwrites existing files. An old vault gets `desk.sh` but keeps its old `tui.py`, `profiles/`, and `AGENTS.md`. To get the front desk in an old vault:
+  - Use `install.sh --link`, or copy the new `tui.py` and `profiles/` by hand.
+  - Copy the new rules row of "Tickets the manager asks for" into `AGENTS.md` by hand.
+  - In a `zh-TW` or `ja` vault with old profiles, set `SEC_DESK=` in `.tarokaja/config` to the title of that section in your `AGENTS.md`.
+
 ## First run
 
 `install.sh` creates the example ticket `T-001` (`Tickets/T-001 Try Tarokaja.md` for `en`) with `status: doing` and one subtask marked `(agent)`. A vault that has tickets already does not get the example ticket.
@@ -118,6 +123,7 @@ flowchart LR
 | Schedule a meeting | Press `M` in the TUI, or set `meeting: YYYY-MM-DD HH:MM` in frontmatter. | `tick.sh` writes the agenda before the meeting and sends a reminder. |
 | Hold a meeting | Press `m` in the TUI, or run `.tarokaja/meeting.sh <ID>`. | Answer open decisions one at a time and accept or reject the work. |
 | Talk without an agenda | Press `Enter` or `t` in the TUI, or run `.tarokaja/meeting.sh <ID> --talk`. | Ask for progress, record your own steps, or delegate a subtask. |
+| Talk to the front desk | Press `T` in the TUI, or run `.tarokaja/desk.sh`. | Ask questions without a ticket, or turn a rough idea into a ticket. |
 | Close or drop a ticket | Accept the work during a meeting, or press `s` in the TUI and select `o` (`done`) or `x` (`dropped`). | Only the manager sets `done` or `dropped`. |
 
 ## TUI keys
@@ -127,6 +133,7 @@ flowchart LR
 | `j` / `Down`, `k` / `Up` | Move selection down or up in the active column. | |
 | `h` / `Left`, `l` / `Right`, `Tab` | Switch focus between the `Places` column and the tickets column. | |
 | `Enter` / `t` | Talk to the agent about the selected ticket (`meeting.sh <ID> --talk`). | Opens in a `cmux` right split when inside `cmux`. |
+| `T` | Talk to the front desk without a ticket (`desk.sh`). | • Works also when no ticket is selected.<br>• Opens in a `cmux` right split when inside `cmux`. |
 | `m` | Hold the meeting for the selected ticket (`meeting.sh <ID>`). | Opens in a `cmux` right split when inside `cmux`. |
 | `M` | Set or clear the `meeting` time (`YYYY-MM-DD HH:MM`). | Empty input clears `meeting`. |
 | `w` | Start a background work session now (`work.sh <ID>`). | Requires an open `(agent)` subtask or `owner: agent`. |
@@ -146,6 +153,7 @@ flowchart LR
 | `work.sh` | `.tarokaja/work.sh <ID>` | Runs one background work session on ticket `<ID>`. | • Requires `status: doing`, empty `agent_state`, and an open `(agent)` subtask or `owner: agent`. <br>• Skips while another session on `<ID>` runs. A lock left by a crash is removed. <br>• Writes the final answer of the agent to `.tarokaja/logs/<ID>-last-work.txt` and epoch seconds to `<ID>.last-work`.<br>• With `claude`, also writes the live event log to `.tarokaja/logs/<ID>-stream.jsonl`. |
 | `prep.sh` | `.tarokaja/prep.sh <ID>` | Runs one background session to write the meeting agenda at `Office/meetings/<YYYY-MM-DD HHMM> <ID>.md`. | • Requires `meeting` on the ticket. <br>• Skips while another session on `<ID>` runs. |
 | `meeting.sh` | • `.tarokaja/meeting.sh <ID>`. <br>• `.tarokaja/meeting.sh <ID> --talk`. | Runs an interactive agent session for a meeting or an ad-hoc talk. | • Tells the agent not to edit the ticket body while a background session runs on `<ID>`.<br>• While a meeting runs, no background session starts on `<ID>`. |
+| `desk.sh` | `.tarokaja/desk.sh` | Runs an interactive agent session for the front desk without a ticket. | • Follows the rules section from `SEC_DESK` (`Tickets the manager asks for` in `en`).<br>• Unsets `TK_TICKET`, so the `session` add-on never binds the session to a ticket.<br>• Sends no add-on events and writes no PID files. |
 | `tick.sh` | `.tarokaja/tick.sh` | • Sends meeting reminders and runs `prep.sh` for every open ticket with a `meeting`.<br>• Starts `work.sh` for delegated tickets. | • `launchd` runs this script every 5 minutes when installed with `--schedule`.<br>• Sessions start in the background, so a long session does not delay a reminder.<br>• `prep.sh` runs one time per meeting, also when it fails. |
 | `tui.py` | • `python3 .tarokaja/tui.py`. <br>• `python3 .tarokaja/tui.py --print`. | Runs the 3-column terminal UI, or prints the open board once and exits with `--print`. | Uses the Python 3.8+ standard library only. |
 
@@ -244,7 +252,7 @@ A profile sets the words that the scripts, the TUI, and the agent use in tickets
 
 | Item | Behavior | Note |
 |---|---|---|
-| Linked files | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `tick.sh`, `tui.py`, `profiles/`, `addons/` | Each one is a symlink into `template/.tarokaja/` of the repo. |
+| Linked files | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `desk.sh`, `tick.sh`, `tui.py`, `profiles/`, `addons/` | Each one is a symlink into `template/.tarokaja/` of the repo. |
 | Local files | `config`, `logs/` | Never in the repo |
 | Changed scripts | A script in the vault that differs from the repo is kept as `<name>.bak`. | A script that is the same as the repo is replaced without a backup. |
 
