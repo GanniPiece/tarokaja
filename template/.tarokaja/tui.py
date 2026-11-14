@@ -66,7 +66,8 @@ ZH = {
     "w           start a work session now    p  write the meeting agenda now": "w           現在開始工作階段            p  現在寫會議議程",
     "s           set the status              n  new ticket": "s           改 status                   n  開新卡",
     "o           open the ticket in Obsidian r  reload       q  quit": "o           在 Obsidian 開啟卡片        r  重新讀取    q  離開",
-    "R           this week's time (timelog add-on)": "R           本週時間（timelog add-on）",
+    "R           this week's time (timelog)  T  talk to the front desk": "R           本週時間（timelog）         T  跟櫃台談（不指定卡片）",
+    "Front desk": "櫃台",
     "Time log is off. Add timelog to ADDONS in .tarokaja/config.": "時間紀錄沒開。在 .tarokaja/config 的 ADDONS 加上 timelog。",
     "Make the window bigger (60x10 at least).": "請把視窗放大（至少 60x10）。",
     " Tarokaja   %s needs you   %s running": " Tarokaja   %s 張等你   %s 張執行中",
@@ -102,7 +103,8 @@ JA = {
     "w           start a work session now    p  write the meeting agenda now": "w           今すぐ作業セッション        p  今すぐアジェンダを作成",
     "s           set the status              n  new ticket": "s           status を変更               n  新しいチケット",
     "o           open the ticket in Obsidian r  reload       q  quit": "o           Obsidian で開く             r  再読み込み  q  終了",
-    "R           this week's time (timelog add-on)": "R           今週の時間（timelog add-on）",
+    "R           this week's time (timelog)  T  talk to the front desk": "R           今週の時間（timelog）       T  受付と話す（チケットなし）",
+    "Front desk": "受付",
     "Time log is off. Add timelog to ADDONS in .tarokaja/config.": "時間記録がオフです。.tarokaja/config の ADDONS に timelog を加えてください。",
     "Make the window bigger (60x10 at least).": "ウィンドウを大きくしてください（60x10 以上）。",
     " Tarokaja   %s needs you   %s running": " Tarokaja   要対応 %s 件   実行中 %s 件",
@@ -148,7 +150,7 @@ HELP = [_(x) for x in [
     "w           start a work session now    p  write the meeting agenda now",
     "s           set the status              n  new ticket",
     "o           open the ticket in Obsidian r  reload       q  quit",
-    "R           this week's time (timelog add-on)",
+    "R           this week's time (timelog)  T  talk to the front desk",
 ]]
 
 
@@ -676,6 +678,8 @@ class App:
                 except OSError as e:
                     self.msg = _("Cannot create the ticket: %s") % e.strerror
                 self.reload()
+        elif key == "T":   # the front desk needs no ticket
+            self.interactive(scr, [os.path.join(TK_DIR, "desk.sh")], _("Front desk"))
         elif cur is None:
             pass
         elif key in ("\n", "\r", "t", curses.KEY_ENTER):

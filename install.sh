@@ -122,7 +122,7 @@ ok "add-ons: $(sed -n 's/^ADDONS=//p' "$vault/.tarokaja/config" | tail -n 1)"
 
 if [ "$link" = 1 ]; then
   # Replace the scripts and profiles with links to this repo. config and logs stay in the vault.
-  for name in lib.sh work.sh prep.sh meeting.sh tick.sh tui.py profiles addons; do
+  for name in lib.sh work.sh prep.sh meeting.sh desk.sh tick.sh tui.py profiles addons; do
     dst="$vault/.tarokaja/$name"
     src="$HERE/template/.tarokaja/$name"
     if [ -L "$dst" ]; then rm -f "$dst"

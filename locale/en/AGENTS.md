@@ -157,10 +157,11 @@ Keep replies short. Say what you changed on the ticket.
 
 ## Tickets the manager asks for
 
-When the manager talks to you in the vault without a ticket:
+When the manager talks to you in the vault without a ticket (the front desk):
 
 | The manager says | You do |
 |---|---|
+| Gives a rough idea or request | Ask short questions until the goal is clear. Then open a ticket as in "Open a ticket": a short title that names the work, "Done when", and the first subtasks. Show the draft first. Create the file when the manager agrees. |
 | "Open a ticket: ..." | Create it with `status: inbox` (`doing` if they start now). Search the vault for related notes and add `links`. Add an `Opened.` breadcrumb. If they give no "Done when", write one and show it. |
 | "I have to stop" / "note where I am" | Write a breadcrumb on the current ticket: the last finished step, the open state (file, command, error), and the next action. Show it. |
 | "I'm back" / "where was I" | Show the latest breadcrumb of each `doing` ticket, newest first. |
@@ -169,6 +170,8 @@ When the manager talks to you in the vault without a ticket:
 | "Drop X" / "X to backlog" / "start X" | Set `dropped`, `backlog`, or `doing`. Add a breadcrumb with the reason. Never delete a ticket file. |
 
 Match a ticket by ID, title, or topic. If two or more tickets match, list them and ask.
+
+Answer other questions directly. Do not open a ticket for a question.
 
 ## Daily note
 

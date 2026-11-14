@@ -32,7 +32,7 @@ run_test() {
     unset AGENT_CLI WORK_EVERY_HOURS WORK_HOURS_FROM WORK_HOURS_TO PREP_BEFORE_MIN REMIND_BEFORE_MIN TK_NOW TK_HOUR ADDONS TK_TICKET TK_HEADLESS
     # Profile keys: a developer's shell must not change the results
     unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS H_TIME MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
-      MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK WRITE_LANG AGENT_DIR_ROOTS TK_LANG MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+      MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK SEC_DESK WRITE_LANG AGENT_DIR_ROOTS TK_LANG MEETINGS_DIR OUTPUTS_DIR RULES_FILE
 
     VAULT="$test_tmp/vault"
     export VAULT
@@ -430,7 +430,7 @@ test_profiles_and_cfg_precedence() {
   [ -f "$VAULT/.tarokaja/profiles/en.conf" ]
   [ -f "$VAULT/.tarokaja/profiles/zh-TW.conf" ]
 
-  unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+  unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_DESK
   . "$VAULT/.tarokaja/lib.sh"
 
   # Default profile (TK_LANG=en)
@@ -451,7 +451,7 @@ test_profiles_and_cfg_precedence() {
   else
     echo "TK_LANG=zh-TW" >> "$VAULT/.tarokaja/config"
   fi
-  unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE
+  unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS MARK CRUMB_STOP CRUMB_NEXT MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_DESK
   . "$VAULT/.tarokaja/lib.sh"
 
   [ "$(cfg H_DONE fallback)" = "## 完成條件" ]
@@ -999,7 +999,7 @@ test_ja_profile_and_cfg() {
     echo "TK_LANG=ja" >> "$VAULT/.tarokaja/config"
   fi
   unset TK_LANG H_DONE H_SUBTASKS H_DECISIONS H_CRUMBS H_TIME MARK CRUMB_STOP CRUMB_NEXT CRUMB_OPENED \
-    MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK WRITE_LANG MEETINGS OUTPUTS
+    MEETINGS_DIR OUTPUTS_DIR RULES_FILE SEC_WORK SEC_PREP SEC_MEETING SEC_TALK SEC_DESK WRITE_LANG MEETINGS OUTPUTS
   . "$VAULT/.tarokaja/lib.sh"
 
   [ "$TK_LANG" = "ja" ]
@@ -1017,6 +1017,7 @@ test_ja_profile_and_cfg() {
   [ "$(cfg SEC_PREP fallback)" = "会議の準備" ]
   [ "$(cfg SEC_MEETING fallback)" = "会議中" ]
   [ "$(cfg SEC_TALK fallback)" = "マネージャーとの対話" ]
+  [ "$(cfg SEC_DESK fallback)" = "マネージャーが求めるチケット" ]
   [ "$(cfg H_TIME fallback)" = "## 時間" ]
   case "$(cfg WRITE_LANG fallback)" in
     *Japanese*) ;;
@@ -1119,6 +1120,69 @@ rows = sys.stdin.read().splitlines()[1:]
 assert len({w(r) for r in rows}) == 1, rows'
 }
 
+test_desk_session() {
+  ( unset TK_LANG SEC_DESK; . "$VAULT/.tarokaja/lib.sh"; [ "$(cfg SEC_DESK fallback)" = "Tickets the manager asks for" ] )
+  ( unset SEC_DESK; TK_LANG=zh-TW; . "$VAULT/.tarokaja/lib.sh"; [ "$(cfg SEC_DESK fallback)" = "主管要的卡片" ] )
+  ( unset SEC_DESK; TK_LANG=ja; . "$VAULT/.tarokaja/lib.sh"; [ "$(cfg SEC_DESK fallback)" = "マネージャーが求めるチケット" ] )
+
+  [ -x "$VAULT/.tarokaja/desk.sh" ]
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.tarokaja/desk.sh"
+  grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
+  if grep -q '^ARG: -p$' "$STUB_AGENT_LOG"; then return 1; fi
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tickets the manager asks for'
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q 'Tickets the manager asks for" in AGENTS.md'
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -qi 'front desk'
+
+  # Writes no LOG_DIR/*.meeting.pid file
+  local mp
+  for mp in "$VAULT/.tarokaja/logs/"*.meeting.pid; do
+    if [ -e "$mp" ]; then return 1; fi
+  done
+
+  # Unsets TK_TICKET even when exported as T-001 and session add-on is enabled
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --addons timelog,session >/dev/null
+  : > "$STUB_AGENT_LOG"
+  TK_TICKET=T-001 /bin/bash "$VAULT/.tarokaja/desk.sh"
+  grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
+  if grep -q '^TK_TICKET:' "$STUB_AGENT_LOG"; then return 1; fi
+  for mp in "$VAULT/.tarokaja/logs/"*.meeting.pid; do
+    if [ -e "$mp" ]; then return 1; fi
+  done
+
+  # Uses RULES_FILE and profile SEC_DESK
+  echo "RULES_FILE=Tarokaja/AGENT.md" >> "$VAULT/.tarokaja/config"
+  sed -i '' 's/^TK_LANG=.*/TK_LANG=zh-TW/' "$VAULT/.tarokaja/config"
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.tarokaja/desk.sh"
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q '主管要的卡片'
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -q '主管要的卡片" in Tarokaja/AGENT.md'
+  grep '^ARG: ' "$STUB_AGENT_LOG" | grep -qi 'front desk'
+
+  # Works when Tickets/ has no tickets
+  rm -f "$VAULT/Tickets/"*.md
+  : > "$STUB_AGENT_LOG"
+  /bin/bash "$VAULT/.tarokaja/desk.sh"
+  grep -q '^CMD: claude$' "$STUB_AGENT_LOG"
+}
+
+test_install_links_desk() {
+  [ -f "$REPO_DIR/template/.tarokaja/desk.sh" ]
+  [ -x "$VAULT/.tarokaja/desk.sh" ]
+
+  /bin/bash "$REPO_DIR/install.sh" "$VAULT" --link >/dev/null
+  [ -L "$VAULT/.tarokaja/desk.sh" ]
+  case "$(readlink "$VAULT/.tarokaja/desk.sh")" in
+    *"template/.tarokaja/desk.sh") ;;
+    *) return 1 ;;
+  esac
+  if [ -e "$VAULT/.tarokaja/desk.sh.bak" ]; then return 1; fi
+}
+
+test_desk_tui() {
+  python3 -I "$TESTS_DIR/test_desk_tui.py" "$VAULT"
+}
+
 run_test "install.sh --lang on an old config, --link twice" test_lang_on_old_config_and_relink
 run_test "stream-json error result and stderr fallback" test_stream_error_result
 run_test "tui.py draws the screen and quits in en and zh-TW" test_tui_screen_both_languages
@@ -1160,6 +1224,9 @@ run_test "work.sh T-001 in a ja vault" test_work_ja_vault
 run_test "tui.py with TK_LANG=ja and --print" test_tui_ja_profile
 run_test "timelog add-on with TK_LANG=ja Daily table" test_timelog_ja
 run_test "week report title row, empty week, and CJK alignment" test_week_report_titles
+run_test "desk.sh prompt, TK_TICKET unset, no tickets, and no meeting.pid" test_desk_session
+run_test "install.sh links desk.sh" test_install_links_desk
+run_test "tui.py front desk help and T action" test_desk_tui
 
 echo ""
 echo "Summary: $PASS_COUNT passed, $FAIL_COUNT failed"

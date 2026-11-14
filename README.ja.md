@@ -97,6 +97,11 @@ flowchart LR
 | `--link` | Off | • **Optional。**<br>• [開発](#開発)で説明するとおり、スクリプトをコピーせずこの repo への symlink にします。 |
 | `--schedule` | Off | • **Optional。**<br>• 5 分ごとに `.tarokaja/tick.sh` を実行する `launchd` ジョブ `local.tarokaja.tick` を読み込みます。 |
 
+- `install.sh` は既存のファイルを上書きしません。古い vault には `desk.sh` が入りますが、既存の `tui.py`、`profiles/`、`AGENTS.md` はそのまま残ります。古い vault で受付を使うには：
+  - `install.sh --link` を使うか、新しい `tui.py` と `profiles/` を手動でコピーします。
+  - 「マネージャーが求めるチケット」の新しいルールの行を `AGENTS.md` に手動でコピーします。
+  - 古いプロファイルの `zh-TW` または `ja` の vault では、`.tarokaja/config` の `SEC_DESK=` に `AGENTS.md` のそのセクションのタイトルを設定します。
+
 ## 初回実行
 
 `install.sh` はサンプルのチケット `T-001`（`en` では `Tickets/T-001 Try Tarokaja.md`、`ja` では `Tickets/T-001 Tarokaja を試す.md`）を作成します。初期状態は `status: doing` で、`(agent)`（`ja` では `（agent）`）が付いたサブタスクが 1 つあります。以下の手順は `en` の名前で書いています。`ja` では `T-001 Tarokaja を試す` と `Office/成果物/` に読み替えてください。すでにチケットがある vault にはサンプルのチケットを作成しません。
@@ -119,6 +124,7 @@ flowchart LR
 | 会議を予定する | TUI で `M` を押すか、frontmatter に `meeting: YYYY-MM-DD HH:MM` を設定します。 | `tick.sh` が会議の前にアジェンダを書き、リマインダーを送ります。 |
 | 会議を開く | TUI で `m` を押すか、`.tarokaja/meeting.sh <ID>` を実行します。 | 未解決の決定に 1 つずつ答え、成果物を検収します。 |
 | アジェンダなしで話す | TUI で `Enter` または `t` を押すか、`.tarokaja/meeting.sh <ID> --talk` を実行します。 | 進捗の確認、マネージャー自身の経過の記録、サブタスクの委任に使います。 |
+| 受付と話す | TUI で `T` を押すか、`.tarokaja/desk.sh` を実行します。 | チケットなしで質問するか、大まかなアイデアからチケットを作ります。 |
 | チケットを完了または中止にする | 会議で成果物を検収するか、TUI で `s` を押して `o`（`done`）または `x`（`dropped`）を選びます。 | `done` または `dropped` を設定するのはマネージャーだけです。 |
 
 ## TUI のキー
@@ -128,6 +134,7 @@ flowchart LR
 | `j` / `Down`, `k` / `Up` | 選択中の列でカーソルを上下に動かします。 | |
 | `h` / `Left`, `l` / `Right`, `Tab` | `Places` 列とチケット列の間でフォーカスを切り替えます。 | |
 | `Enter` / `t` | 選択中のチケットについて agent と話します（`meeting.sh <ID> --talk`）。 | `cmux` 内では右側の split で開きます。 |
+| `T` | チケットなしで受付と話します（`desk.sh`）。 | • チケットを選択していないときも使えます。<br>• `cmux` 内では右側の split で開きます。 |
 | `m` | 選択中のチケットの会議を開きます（`meeting.sh <ID>`）。 | `cmux` 内では右側の split で開きます。 |
 | `M` | `meeting` の時刻（`YYYY-MM-DD HH:MM`）を設定または消去します。 | 空欄で入力すると `meeting` を消去します。 |
 | `w` | バックグラウンドの作業セッションを今すぐ開始します（`work.sh <ID>`）。 | 未完了の `(agent)` サブタスクまたは `owner: agent` が必要です。 |
@@ -147,6 +154,7 @@ flowchart LR
 | `work.sh` | `.tarokaja/work.sh <ID>` | チケット `<ID>` でバックグラウンドの作業セッションを 1 回実行します。 | • `status: doing`、空の `agent_state`、未完了の `(agent)` サブタスクまたは `owner: agent` が必要です。<br>• `<ID>` で別のセッションが実行中のときはスキップし、クラッシュで残ったロックは削除します。<br>• Agent の最終回答を `.tarokaja/logs/<ID>-last-work.txt` に書き、エポック秒を `<ID>.last-work` に書きます。<br>• `claude` の場合、リアルタイムのイベントログも `.tarokaja/logs/<ID>-stream.jsonl` に書きます。 |
 | `prep.sh` | `.tarokaja/prep.sh <ID>` | バックグラウンドのセッションを 1 回実行し、`Office/meetings/<YYYY-MM-DD HHMM> <ID>.md` に会議のアジェンダを書きます。 | • チケットに `meeting` が必要です。<br>• `<ID>` で別のセッションが実行中のときはスキップします。 |
 | `meeting.sh` | • `.tarokaja/meeting.sh <ID>`<br>• `.tarokaja/meeting.sh <ID> --talk` | 会議または対話のために対話型の agent セッションを実行します。 | • `<ID>` でバックグラウンドのセッションが実行中のときは、チケット本文を編集しないよう agent に伝えます。<br>• 会議の実行中は、`<ID>` でバックグラウンドのセッションを開始しません。 |
+| `desk.sh` | `.tarokaja/desk.sh` | チケットなしで受付の対話型 agent セッションを実行します。 | • `SEC_DESK`（`en` は `Tickets the manager asks for`、`ja` は `マネージャーが求めるチケット`）のルールセクションに従います。<br>• `TK_TICKET` を消去するため、`session` add-on はこのセッションをチケットに紐づけません。<br>• add-on イベントを送らず、PID ファイルも作りません。 |
 | `tick.sh` | `.tarokaja/tick.sh` | • `meeting` があるすべての未完了チケットに対して、会議のリマインダーを送り `prep.sh` を実行します。<br>• 委任されたチケットに対して `work.sh` を開始します。 | • `--schedule` 付きでインストールした場合、`launchd` が 5 分ごとにこのスクリプトを実行します。<br>• セッションはバックグラウンドで始まるため、長いセッションがリマインダーを遅らせることはありません。<br>• `prep.sh` は失敗したときも含め、1 回の会議につき 1 回だけ実行します。 |
 | `tui.py` | • `python3 .tarokaja/tui.py`<br>• `python3 .tarokaja/tui.py --print` | 3 列の TUI を実行するか、`--print` で未完了ボードを 1 回出力して終了します。 | Python 3.8 以降の標準ライブラリだけを使います。 |
 
@@ -245,7 +253,7 @@ flowchart LR
 
 | Item | Behavior | Note |
 |---|---|---|
-| リンクされるファイル | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `tick.sh`, `tui.py`, `profiles/`, `addons/` | それぞれ repo の `template/.tarokaja/` への symlink です。 |
+| リンクされるファイル | `lib.sh`, `work.sh`, `prep.sh`, `meeting.sh`, `desk.sh`, `tick.sh`, `tui.py`, `profiles/`, `addons/` | それぞれ repo の `template/.tarokaja/` への symlink です。 |
 | ローカルのファイル | `config`, `logs/` | Repo には入りません。 |
 | 変更されたスクリプト | Repo と内容が異なる vault 内のスクリプトは `<name>.bak` として残ります。 | Repo と同じ内容のスクリプトはバックアップなしで置き換わります。 |
 
